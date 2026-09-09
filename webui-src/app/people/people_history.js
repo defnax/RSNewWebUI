@@ -80,8 +80,17 @@ const HistoryBrowserModal = () => {
               m('h3', { style: 'margin: 0; font-size: 1.1rem; font-weight: 700; color: #1e293b;' }, `Chat History Browser — ${name}`),
             ]),
             m('button.close-btn', {
-              style: 'background: transparent; border: none; font-size: 1.25rem; color: #64748b; cursor: pointer; padding: 0.25rem; border-radius: 0.25rem;',
+              type: 'button',
+              style: 'background: transparent; border: none; box-shadow: none !important; font-size: 1.25rem; color: #64748b; cursor: pointer; padding: 0.35rem; border-radius: 0.375rem; width: auto; height: auto; min-width: unset; line-height: 1; display: inline-flex; align-items: center; justify-content: center; transition: background 0.15s ease, color 0.15s ease;',
               title: 'Close history browser',
+              onmouseenter: (e) => {
+                e.currentTarget.style.background = '#e2e8f0';
+                e.currentTarget.style.color = '#1e293b';
+              },
+              onmouseleave: (e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = '#64748b';
+              },
               onclick: () => (stateObj.showHistoryModal = false),
             }, m('i.fas.fa-times')),
           ]),
@@ -114,7 +123,7 @@ const HistoryBrowserModal = () => {
                 ])
               : filteredHistory.length === 0
                 ? m('.empty-history', { style: 'text-align: center; padding: 3rem; color: #64748b;' }, [
-                    m('i.far.fa-comments', { style: 'font-size: 2.5rem; color: #cbd5e1; margin-bottom: 0.75rem;' }),
+                    m('i.fas.fa-comments', { style: 'font-size: 2.5rem; color: #cbd5e1; margin-bottom: 0.75rem;' }),
                     m('p', 'No past chat messages found matching your query.'),
                   ])
                 : filteredHistory.map((msg) => {

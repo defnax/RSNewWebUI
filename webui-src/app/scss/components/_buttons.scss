@@ -14,3 +14,19 @@ button.red {
   flex-shrink: 0 !important;
 }
 
+// Control buttons, close buttons, and icon buttons must not inherit 3D inset box shadows
+button.close-btn,
+.close-btn,
+.modal-close,
+.history-modal .close-btn,
+.rightbar-close,
+button.icon-btn,
+button.btn-icon,
+button[class*="close"] {
+  box-shadow: none !important;
+
+  &:active {
+    box-shadow: none !important;
+  }
+}
+
