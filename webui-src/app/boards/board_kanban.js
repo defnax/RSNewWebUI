@@ -310,17 +310,15 @@ function BoardCard() {
             // Title (blue link matching Qt GUI)
             m(
               'h4.board-card__title',
-              {
+              m('button.board-card__title-button[type=button]', {
                 title,
-                tabindex: 0,
                 onclick: (e) => {
                   e.stopPropagation();
                   if (onOpenComments) {
                     onOpenComments(item, msgId, forumId);
                   }
                 },
-              },
-              title
+              }, title)
             ),
 
             // Metadata Line (Posted by <author> <date>)

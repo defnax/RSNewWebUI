@@ -702,6 +702,22 @@ button.board-card__vote-btn,
   padding: 0 !important;
 }
 
+.board-card__title-button,
+.board-card__title-button:active {
+  all: unset;
+  box-sizing: border-box;
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.board-card__title-button:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: -2px;
+}
+
 /* Title: Blue bold underlined italicized link (Matches Qt GUI) */
 .board-card--compact .board-card__title {
   font-size: 1.05rem !important;
