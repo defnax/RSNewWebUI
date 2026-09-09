@@ -293,7 +293,10 @@ async function voteForPost(postGrpId, postMsgId, voteType, voterId = null) {
     });
 
     if (res && res.body && res.body.retval) {
-      updateDisplayBoards(postGrpId);
+      // Let an older board load finish before replacing this post with fresh
+      // vote totals. updateDisplayBoards skips content that is already cached.
+      if (inFlightBoards[postGrpId]) await inFlightBoards[postGrpId];
+      await updateContent(postMsgId, postGrpId);
       m.redraw();
       return true;
     }
