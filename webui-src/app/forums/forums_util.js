@@ -180,17 +180,15 @@ async function loadPostContent(forumId, msgId) {
       if (Data.Threads[forumId] && Data.Threads[forumId][msgId]) {
         Data.Threads[forumId][msgId].thread.mMsg = body;
       }
-      //  The cached body is what stops the view from asking again, so the key
-      //  is only released once it is in place.
-      bodyRequestsInFlight.delete(inFlightKey);
       m.redraw();
       return body;
     }
   } catch (e) {
     console.error('[RS] Error loading post content:', forumId, msgId, e);
+  } finally {
+    // Only suppress concurrent requests; completed failures must allow retries.
+    bodyRequestsInFlight.delete(inFlightKey);
   }
-  //  Failure: the key is deliberately kept, so a post the core cannot return
-  //  is asked for once per visit instead of once per redraw, forever.
   return null;
 }
 
