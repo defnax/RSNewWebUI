@@ -28,7 +28,7 @@ function initialPosition(index, count, level) {
   };
 }
 
-function layoutGraph(nodes, edges, edgeLength) {
+function* layoutGraphSteps(nodes, edges, edgeLength) {
   const positions = {};
   const byLevel = [0, 1, 2].map((level) => nodes.filter((node) => node.level === level));
   byLevel.forEach((levelNodes, level) => {
@@ -38,6 +38,7 @@ function layoutGraph(nodes, edges, edgeLength) {
   });
 
   const own = nodes.find((node) => node.level === 0);
+  let work = 0;
   for (let iteration = 0; iteration < 140; iteration++) {
     const force = Object.fromEntries(nodes.map((node) => [node.id, { x: 0, y: 0 }]));
 
@@ -56,13 +57,15 @@ function layoutGraph(nodes, edges, edgeLength) {
         force[nodes[i].id].y += dy * strength;
         force[nodes[j].id].x -= dx * strength;
         force[nodes[j].id].y -= dy * strength;
+        if (++work % 256 === 0) yield;
       }
     }
 
-    edges.forEach((edge) => {
+    for (const edge of edges) {
+      if (++work % 256 === 0) yield;
       const a = positions[edge.source];
       const b = positions[edge.target];
-      if (!a || !b) return;
+      if (!a || !b) continue;
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const distance = Math.max(Math.sqrt(dx * dx + dy * dy), 1);
@@ -71,7 +74,7 @@ function layoutGraph(nodes, edges, edgeLength) {
       force[edge.source].y += (dy / distance) * strength;
       force[edge.target].x -= (dx / distance) * strength;
       force[edge.target].y -= (dy / distance) * strength;
-    });
+    }
 
     nodes.forEach((node) => {
       if (own && node.id === own.id) return;
@@ -81,6 +84,22 @@ function layoutGraph(nodes, edges, edgeLength) {
     });
   }
   return positions;
+}
+
+async function layoutGraph(nodes, edges, edgeLength, isCurrent) {
+  const steps = layoutGraphSteps(nodes, edges, edgeLength);
+  while (isCurrent()) {
+    // Yield to input and painting between short batches, including within
+    // a single iteration of the quadratic repulsion calculation.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    if (!isCurrent()) return null;
+    const started = performance.now();
+    do {
+      const step = steps.next();
+      if (step.done) return step.value;
+    } while (performance.now() - started < 4);
+  }
+  return null;
 }
 
 //  Module level, not fields of the component: the graph tab is mounted only
@@ -103,6 +122,7 @@ let loadedAt = 0;
 //  over the fresh ones: changing the friendship level while a load is running
 //  starts a second one, and they do not necessarily finish in order.
 let loadToken = 0;
+let layoutToken = 0;
 const GRAPH_CACHE_MS = 60000;
 
 const NetworkGraph = () => {
@@ -135,6 +155,7 @@ const NetworkGraph = () => {
 
   async function loadGraph() {
     const token = ++loadToken;
+    ++layoutToken;
     loading = true;
     error = '';
 
@@ -199,14 +220,23 @@ const NetworkGraph = () => {
       });
     });
 
-    positions = layoutGraph(nodes, edges, edgeLength);
+    const layout = ++layoutToken;
+    const result = await layoutGraph(nodes, edges, edgeLength,
+      () => token === loadToken && layout === layoutToken);
+    if (!result || token !== loadToken || layout !== layoutToken) return;
+    positions = result;
     loadedAt = Date.now();
     loading = false;
     m.redraw();
   }
 
-  function redrawLayout() {
-    positions = layoutGraph(nodes, edges, edgeLength);
+  async function redrawLayout() {
+    if (loading) return;
+    const token = ++layoutToken;
+    const result = await layoutGraph(nodes, edges, edgeLength, () => token === layoutToken);
+    if (!result || token !== layoutToken) return;
+    positions = result;
+    m.redraw();
   }
 
   function setZoom(value) {
@@ -228,6 +258,12 @@ const NetworkGraph = () => {
     oninit: () => {
       if (nodes.length === 0 || Date.now() - loadedAt > GRAPH_CACHE_MS) loadGraph();
     },
+    onremove: () => {
+      ++loadToken;
+      ++layoutToken;
+      if (loading) loadedAt = 0;
+      loading = false;
+    },
     view: () => m('.network-graph', [
       m('.network-graph__toolbar', [
         m('button.network-graph__redraw[type=button][title=Redraw graph][aria-label=Redraw graph]', { onclick: loadGraph, disabled: loading }, [
@@ -248,11 +284,7 @@ const NetworkGraph = () => {
           `Edge length ${edgeLength}`,
           m('input[type=range][min=60][max=180][step=5]', {
             value: edgeLength,
-            //  The label follows the slider, the layout waits for the release:
-            //  layoutGraph() is 140 iterations of an O(n^2) force loop, which
-            //  measures 24 ms at 20 nodes, 199 ms at 100 and 729 ms at the 200
-            //  node cap. A range input fires oninput dozens of times per drag,
-            //  each one blocking the main thread for that long.
+            // Update the label while dragging; start the batched layout on release.
             oninput: (event) => {
               edgeLength = Number(event.target.value);
             },
