@@ -14,6 +14,7 @@ const {
   ChatRoomsModel,
   ChatLobbyModel,
   ChatHubState,
+  autoResizeTextarea,
 } = chatState;
 
 chatEmoji.setDependencies({ ChatHubState });
@@ -222,6 +223,7 @@ function pollHashStatus(localpath, delay = HASH_POLL_START_MS) {
       if (textarea) {
         const val = textarea.value;
         textarea.value = val ? val + '\n' + fileLink : fileLink;
+        autoResizeTextarea(textarea);
       }
 
       ChatHubState.showAttachModal = false;
@@ -528,6 +530,7 @@ const ChatConversationView = () => {
                         const end = textarea.selectionEnd || 0;
                         const val = textarea.value;
                         textarea.value = val.substring(0, start) + imgTag + val.substring(end);
+                        autoResizeTextarea(textarea);
                         m.redraw();
                       }
                     });
@@ -539,6 +542,10 @@ const ChatConversationView = () => {
                 placeholder: 'Type a message...',
                 disabled: !canTalk,
                 enterkeyhint: 'send',
+                rows: 1,
+                oncreate: (vnode) => autoResizeTextarea(vnode.dom),
+                onupdate: (vnode) => autoResizeTextarea(vnode.dom),
+                oninput: (e) => autoResizeTextarea(e.target),
                 onpaste: (e) => {
                   if (!canTalk) return;
                   const items = (e.clipboardData || (e.originalEvent && e.originalEvent.clipboardData))?.items;
@@ -554,6 +561,7 @@ const ChatConversationView = () => {
                           const end = textarea.selectionEnd || 0;
                           const val = textarea.value;
                           textarea.value = val.substring(0, start) + imgTag + val.substring(end);
+                          autoResizeTextarea(textarea);
                           m.redraw();
                         }
                       });
@@ -562,16 +570,31 @@ const ChatConversationView = () => {
                   }
                 },
                 onkeydown: (e) => {
-                  if ((e.key === 'Enter' || e.keyCode === 13) && !e.shiftKey) {
-                    if (!canTalk) return false;
-                    const msg = e.target.value;
-                    if (msg.trim() === '') return false;
-                    e.target.value = ' sending ... ';
-                    ChatLobbyModel.sendMessage(msg, () => {
-                      e.target.value = '';
-                      scrollChatToBottom();
-                    });
-                    return false;
+                  if (e.key === 'Enter' || e.keyCode === 13) {
+                    if (!e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                      e.preventDefault();
+                      if (!canTalk) return false;
+                      const msg = e.target.value;
+                      if (msg.trim() === '') return false;
+                      e.target.value = ' sending ... ';
+                      ChatLobbyModel.sendMessage(msg, () => {
+                        e.target.value = '';
+                        autoResizeTextarea(e.target);
+                        scrollChatToBottom();
+                      });
+                      return false;
+                    }
+                    if (e.ctrlKey || e.metaKey) {
+                      e.preventDefault();
+                      if (!document.execCommand || !document.execCommand('insertText', false, '\n')) {
+                        const start = e.target.selectionStart || 0;
+                        const end = e.target.selectionEnd || 0;
+                        const val = e.target.value;
+                        e.target.value = val.substring(0, start) + '\n' + val.substring(end);
+                        e.target.selectionStart = e.target.selectionEnd = start + 1;
+                      }
+                      autoResizeTextarea(e.target);
+                    }
                   }
                 },
               }),
@@ -588,6 +611,7 @@ const ChatConversationView = () => {
                     textarea.value = ' sending ... ';
                     ChatLobbyModel.sendMessage(msg, () => {
                       textarea.value = '';
+                      autoResizeTextarea(textarea);
                       scrollChatToBottom();
                     });
                   },

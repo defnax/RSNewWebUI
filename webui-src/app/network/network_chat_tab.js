@@ -8,7 +8,7 @@ const {
   sendDirectChatMessage,
   loadAllDirectChatHistory,
 } = require('network/network_state');
-const { renderChatMessage } = require('chat/chat_state');
+const { renderChatMessage, autoResizeTextarea } = require('chat/chat_state');
 const chatEmoji = require('chat/chat_emoji');
 const HistoryBrowserModal = require('people/people_history');
 
@@ -218,7 +218,7 @@ const ChatTab = () => {
           name: friend.name,
           ownName: State.ownProfile.name || 'You',
         }),
-        m('.chat-input-area', { style: 'display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem; background: #ffffff; border-top: 1px solid #cbd5e1;' }, [
+        m('.chat-input-area', { style: 'display: flex; align-items: flex-end; gap: 0.5rem; padding: 0.75rem; background: #ffffff; border-top: 1px solid #cbd5e1;' }, [
           m('button.chat-hub-action-btn.desktop-chat-attachment', {
             title: 'Attach file link',
             onclick: () => {
@@ -313,9 +313,13 @@ const ChatTab = () => {
           m('textarea.chat-textarea', {
             placeholder: 'Type a message here...',
             value: State.chatInputMsg,
-            style: 'flex: 1; resize: none; border: 1px solid #cbd5e1; border-radius: 6px; padding: 0.5rem; font-family: inherit; font-size: 0.9rem; outline: none; min-height: 40px; max-height: 120px;',
+            rows: 1,
+            style: 'flex: 1; resize: none; border: 1px solid #cbd5e1; border-radius: 0.625rem; padding: 0.55rem 0.75rem; font-family: inherit; font-size: 0.9rem; line-height: 1.45; outline: none; min-height: 40px; max-height: 160px; height: 40px; box-sizing: border-box; overflow-y: hidden;',
+            oncreate: (vnode) => autoResizeTextarea(vnode.dom),
+            onupdate: (vnode) => autoResizeTextarea(vnode.dom),
             oninput: (e) => {
               State.chatInputMsg = e.target.value;
+              autoResizeTextarea(e.target);
             },
             onpaste: (e) => {
               const items = (e.clipboardData || (e.originalEvent && e.originalEvent.clipboardData))?.items;
@@ -335,9 +339,25 @@ const ChatTab = () => {
               }
             },
             onkeydown: (e) => {
-              if (e.code === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendDirectChatMessage();
+              if (e.key === 'Enter' || e.code === 'Enter' || e.keyCode === 13) {
+                if (!e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                  e.preventDefault();
+                  sendDirectChatMessage();
+                } else if (e.ctrlKey || e.metaKey) {
+                  e.preventDefault();
+                  if (!document.execCommand || !document.execCommand('insertText', false, '\n')) {
+                    const start = e.target.selectionStart || 0;
+                    const end = e.target.selectionEnd || 0;
+                    const val = e.target.value;
+                    const newVal = val.substring(0, start) + '\n' + val.substring(end);
+                    State.chatInputMsg = newVal;
+                    e.target.value = newVal;
+                    e.target.selectionStart = e.target.selectionEnd = start + 1;
+                  } else {
+                    State.chatInputMsg = e.target.value;
+                  }
+                  autoResizeTextarea(e.target);
+                }
               }
             },
           }),

@@ -1309,15 +1309,18 @@ textarea.chatMsg {
 
 .chat-hub-input-area textarea.chat-hub-textarea {
   flex: 1;
-  resize: vertical;
+  resize: none !important;
   min-height: 40px;
-  max-height: 250px;
+  max-height: 160px;
   height: 40px;
-  padding: 0.5rem 0.75rem;
+  padding: 0.55rem 0.75rem;
   border: 1px solid #cbd5e1;
-  border-radius: 0.375rem;
+  border-radius: 0.625rem;
   font-size: 0.9rem;
+  line-height: 1.45;
   outline: none;
+  overflow-y: hidden;
+  box-sizing: border-box;
   transition: border-color 0.2s, box-shadow 0.2s;
   background-color: #f8fafc;
 }
@@ -1444,12 +1447,15 @@ label.mobile-chat-attachment__option:hover {
     min-width: 0;
     min-height: 40px;
     height: 40px;
-    max-height: 120px;
+    max-height: 140px;
     padding: 0.55rem 0.7rem;
-    resize: none;
+    resize: none !important;
     border-color: #dbe2ea;
     border-radius: 1.25rem;
     background: #ffffff;
+    box-sizing: border-box;
+    overflow-y: hidden;
+    line-height: 1.4;
   }
 
   .chat-hub-input-area .emoji-picker-wrapper {

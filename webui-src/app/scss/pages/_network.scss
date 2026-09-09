@@ -804,17 +804,22 @@
     border-top: 1px solid #cbd5e1;
     display: flex;
     gap: 0.75rem;
-    align-items: center;
+    align-items: flex-end;
 
     textarea.chat-textarea {
       flex: 1;
-      resize: none;
+      resize: none !important;
+      min-height: 40px;
+      max-height: 160px;
       height: 40px;
-      padding: 0.5rem 0.75rem;
+      padding: 0.55rem 0.75rem;
       border: 1px solid #cbd5e1;
-      border-radius: 0.375rem;
+      border-radius: 0.625rem;
       font-size: 0.9rem;
+      line-height: 1.45;
       outline: none;
+      overflow-y: hidden;
+      box-sizing: border-box;
       transition: all 0.2s;
 
       &:focus {
@@ -923,7 +928,7 @@
 
   /* Direct-chat composer: preserve room for typing on a narrow screen. */
   .network-chat-view .chat-input-area {
-    align-items: center !important;
+    align-items: flex-end !important;
     padding: .35rem .45rem !important;
     gap: .2rem !important;
     min-width: 0;
@@ -959,11 +964,14 @@
     min-width: 0 !important;
     min-height: 40px !important;
     height: 40px !important;
-    max-height: 120px !important;
+    max-height: 140px !important;
     padding: .55rem .7rem !important;
     border-color: #dbe2ea !important;
     border-radius: 1.25rem !important;
     background: #fff !important;
+    box-sizing: border-box;
+    overflow-y: hidden;
+    line-height: 1.4;
   }
 
   .network-chat-view .chat-input-area .send-btn {

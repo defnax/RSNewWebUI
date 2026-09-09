@@ -1325,4 +1325,15 @@ module.exports = {
   ChatLobbyModel,
   ChatHubState,
   receiveLobbyChatMessage,
+  autoResizeTextarea,
 };
+
+function autoResizeTextarea(el) {
+  if (!el) return;
+  el.style.height = 'auto';
+  const maxHeight = 160;
+  const scrollHeight = el.scrollHeight;
+  const newHeight = Math.min(Math.max(scrollHeight, 40), maxHeight);
+  el.style.height = newHeight + 'px';
+  el.style.overflowY = scrollHeight > maxHeight ? 'auto' : 'hidden';
+}
