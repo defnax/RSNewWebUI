@@ -190,6 +190,7 @@ const Component = () => {
 };
 
 module.exports = {
+  addFile,
   Component,
   Downloads,
   list: Downloads.statusMap,

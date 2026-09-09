@@ -213,6 +213,41 @@ function openChatImageViewer(src) {
 function renderChatMessage(rawText) {
   if (!rawText) return '';
 
+  // Preserve file attachments before HTML-to-text conversion drops their href.
+  // Parse inside an inert template and rebuild the link, never render peer HTML.
+  const anchorRegex = /<a\b[^>]*>[\s\S]*?<\/a\s*>/gi;
+  const fileParts = [];
+  let fileEnd = 0;
+  let anchor;
+  while ((anchor = anchorRegex.exec(rawText)) !== null) {
+    const template = document.createElement('template');
+    template.innerHTML = anchor[0];
+    const link = template.content.querySelector('a');
+    const href = link && link.getAttribute('href');
+    if (!href || !/^retroshare:\/\/file\?/i.test(href)) continue;
+    let url;
+    try { url = new URL(href); } catch (_) { continue; }
+    const name = url.searchParams.get('name');
+    const size = url.searchParams.get('size');
+    const hash = url.searchParams.get('hash');
+    if (!name || !/^\d+$/.test(size || '') || !/^[a-f0-9]{40}$/i.test(hash || '')) continue;
+    const safeHref = `retroshare://file?name=${encodeURIComponent(name)}&size=${size}&hash=${hash}`;
+    if (anchor.index > fileEnd) fileParts.push(renderChatMessage(rawText.slice(fileEnd, anchor.index)));
+    fileParts.push(m('a.chat-file-link', {
+      href: safeHref,
+      title: `Download ${name}`,
+      onclick: (event) => {
+        event.preventDefault();
+        require('files/files_downloads').addFile(safeHref);
+      },
+    }, link.textContent || name));
+    fileEnd = anchorRegex.lastIndex;
+  }
+  if (fileParts.length) {
+    if (fileEnd < rawText.length) fileParts.push(renderChatMessage(rawText.slice(fileEnd)));
+    return fileParts;
+  }
+
   // 1. Check for <img ... src="..."> HTML tags
   const imgRegex = /<img\s+[^>]*src=["']([^"']+)["'][^>]*>/gi;
   if (imgRegex.test(rawText)) {
