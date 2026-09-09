@@ -726,7 +726,6 @@ const ChannelComments = () => {
       m('.board-comment__content', [
         m('.board-comment__header', [
           m('.board-comment__meta', [m('b', name), dateOf(meta.mPublishTs) ? m('span', dateOf(meta.mPublishTs)) : null]),
-          m('button.board-comment__menu[type=button][aria-label=Comment options]', m('i.fas.fa-ellipsis-v')),
         ]),
         m('p.board-comment__text', comment.mComment || comment.comment || ''),
         m('.board-comment__actions', [

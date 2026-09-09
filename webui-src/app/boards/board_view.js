@@ -760,7 +760,6 @@ function PostView() {
       m('.board-comment__content', [
         m('.board-comment__header', [
           m('.board-comment__meta', [m('b', name), timeOf(meta.mPublishTs) ? m('span', timeOf(meta.mPublishTs)) : null]),
-          m('button.board-comment__menu[type=button][aria-label=Comment options][title=Comment options]', m('i.fas.fa-ellipsis-v')),
         ]),
         m('p.board-comment__text', textOf(comment)),
         m('.board-comment__actions', [
