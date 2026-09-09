@@ -732,40 +732,34 @@ const Layout = () => {
               ]),
 
               // Floating Emoji Picker Popover
-              showEmojiPicker && m('.mail-emoji-picker-popover', {
-                style: 'position: absolute; bottom: 50px; left: 130px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 0.5rem; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.15), 0 8px 10px -6px rgba(0,0,0,0.1); width: 320px; max-height: 340px; z-index: 2000; display: flex; flex-direction: column; overflow: hidden;',
+              showEmojiPicker && m('.emoji-picker', {
+                style: 'position: absolute; bottom: 50px; left: 130px; z-index: 2000;',
                 onclick: (e) => e.stopPropagation(),
               }, [
-                m('.emoji-search-bar', { style: 'padding: 0.5rem; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; gap: 0.5rem;' }, [
-                  m('i.fas.fa-search', { style: 'color: #94a3b8; font-size: 0.85rem;' }),
-                  m('input[type=text][placeholder=Search emoji...]', {
-                    style: 'border: none; outline: none; width: 100%; font-size: 0.85rem;',
+                m('.emoji-search-row', [
+                  m('i.fas.fa-search.emoji-search-icon'),
+                  m('input.emoji-search-input[type=text][placeholder=Search emoji...]', {
                     value: emojiSearch,
                     oninput: (e) => (emojiSearch = e.target.value),
                   }),
-                  emojiSearch && m('i.fas.fa-times', {
-                    style: 'cursor: pointer; color: #94a3b8; font-size: 0.85rem;',
+                  emojiSearch && m('button.emoji-search-clear[type=button]', {
                     onclick: () => (emojiSearch = ''),
-                  }),
+                  }, m('i.fas.fa-times')),
                 ]),
-                !emojiSearch && m('.emoji-cat-bar', { style: 'display: flex; background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 0.25rem; overflow-x: auto;' },
+                !emojiSearch && m('.emoji-categories',
                   chatEmoji.EMOJI_CATEGORIES.map((c) =>
-                    m('button', {
-                      style: `border: none; background: ${c === emojiCategory ? '#ffffff' : 'transparent'}; border-radius: 0.25rem; padding: 0.3rem 0.4rem; cursor: pointer; font-size: 1rem; box-shadow: ${c === emojiCategory ? '0 1px 2px rgba(0,0,0,0.1)' : 'none'};`,
+                    m('button.emoji-cat-btn[type=button]' + (c === emojiCategory ? '.active' : ''), {
                       title: c,
                       onclick: () => (emojiCategory = c),
                     }, chatEmoji.EMOJI_ICONS[c])
                   )
                 ),
-                m('.emoji-grid-body', { style: 'padding: 0.5rem; display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.25rem; max-height: 230px; overflow-y: auto;' },
+                m('.emoji-grid',
                   (emojiSearch
                     ? Object.values(chatEmoji.EMOJI_DATA).flat().filter((e) => e.includes(emojiSearch))
                     : (chatEmoji.EMOJI_DATA[emojiCategory] || [])
                   ).map((e) =>
-                    m('button', {
-                      style: 'border: none; background: transparent; font-size: 1.25rem; cursor: pointer; padding: 0.25rem; border-radius: 0.25rem; transition: background 0.15s ease;',
-                      onmouseenter: (ev) => (ev.currentTarget.style.background = '#f1f5f9'),
-                      onmouseleave: (ev) => (ev.currentTarget.style.background = 'transparent'),
+                    m('button.emoji-btn[type=button]', {
                       onclick: () => {
                         insertEmoji(e);
                         showEmojiPicker = false;
@@ -773,7 +767,7 @@ const Layout = () => {
                     }, e)
                   )
                 ),
-              ])
+              ]),
             ]),
           ]),
         ]),
