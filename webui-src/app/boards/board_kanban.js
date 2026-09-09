@@ -69,13 +69,11 @@ function extractImageSrc(item) {
     }
   }
 
-  // Check notes/body text for embedded data:image or web URL
+  // Only extract embedded images: remote URLs can expose the reader's IP to peers.
   const text = p.mNotes || p.mBody || item.notes || item.body || '';
   if (typeof text === 'string') {
     const dataMatch = text.match(/data:image\/[a-zA-Z]+;base64,[^"\s)]+/);
     if (dataMatch) return dataMatch[0];
-    const urlMatch = text.match(/https?:\/\/[^\s")<]+\.(?:png|jpg|jpeg|gif|webp)/i);
-    if (urlMatch) return urlMatch[0];
   }
 
   return '';
