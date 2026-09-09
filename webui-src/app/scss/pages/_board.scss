@@ -260,26 +260,6 @@
   }
 }
 
-/* YouTube-style discussion thread on a board post. */
-.board-comments {
-  margin-top: 1.5rem;
-  max-width: 900px;
-  color: #0f172a;
-}
-
-.board-comments__heading {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 1.25rem;
-}
-
-.board-comments__heading h3 { margin: 0; font-size: 1.15rem; }
-.board-comments__heading span { color: #64748b; font-size: .8rem; font-weight: 600; }
-.board-comments__heading i { margin-right: .35rem; }
-.board-comments__voter { display: inline-flex; align-items: center; gap: .4rem; margin-left: auto; color: #64748b; font-size: .75rem; font-weight: 600; white-space: nowrap; }
-.board-comments__voter select { max-width: 180px; padding: .25rem .4rem; font-size: .78rem; }
-
 .board-post-voting {
   display: flex;
   align-items: center;
@@ -297,137 +277,10 @@
 .board-post-voting__buttons button { min-width: 52px; padding: .3rem .55rem; box-shadow: none; }
 .board-post-voting__score { min-width: 2rem; color: #334155; font-weight: 700; text-align: center; }
 
-.board-comment-composer,
-.board-comment {
-  display: flex;
-  gap: .8rem;
-}
-
-.board-comment-avatar {
-  display: flex;
-  flex: 0 0 38px;
-  width: 38px;
-  height: 38px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #2563eb, #7c3aed);
-  color: #fff;
-  font-size: .78rem;
-  font-weight: 700;
-
-  > .avatar,
-  > .jdenticon-avatar,
-  > .defaultAvatar {
-    width: 100% !important;
-    height: 100% !important;
-    min-width: 100% !important;
-    min-height: 100% !important;
-    margin-right: 0 !important;
-  }
-}
-
-.board-comment-composer__body,
-.board-comment__content { min-width: 0; flex: 1; }
-.board-comment-composer__identity { max-width: 240px; margin-bottom: .45rem; font-size: .8rem; }
-
-.board-comment-composer__input {
-  width: 100%;
-  min-height: 36px;
-  padding: .45rem 0;
-  resize: vertical;
-  border: 0;
-  border-bottom: 1px solid #94a3b8;
-  border-radius: 0;
-  background: transparent;
-  color: #0f172a;
-  font: inherit;
-  line-height: 1.4;
-  box-sizing: border-box;
-}
-
-.board-comment-composer__input:focus { outline: 0; border-bottom: 2px solid #2563eb; }
-.board-comment-composer__input:disabled { cursor: not-allowed; opacity: .6; }
-
-.board-comment-composer__actions,
-.board-comment__actions {
-  display: flex;
-  align-items: center;
-  gap: .45rem;
-  margin-top: .55rem;
-}
-
-.board-comment-composer__actions { justify-content: flex-end; }
-.board-comment-composer__actions button,
-.board-comment__actions button,
-.board-comment__like,
-.board-comment-composer__replying button {
-  border: 0;
-  background: transparent;
-  color: #475569;
-  cursor: pointer;
-  font-size: .78rem;
-  font-weight: 700;
-}
-
-.board-comment-composer__submit {
-  padding: .45rem .85rem !important;
-  border-radius: 999px !important;
-  background: #2563eb !important;
-  color: #fff !important;
-}
-.board-comment-composer__submit:disabled { background: #dbe3ef !important; color: #94a3b8 !important; cursor: not-allowed; }
-.board-comment-composer__cancel:hover,
-.board-comment__actions button:hover { color: #2563eb; }
-
-.board-comment-composer__replying { display: flex; align-items: center; gap: .25rem; margin-bottom: .35rem; color: #64748b; font-size: .8rem; }
-.board-comment-composer__replying button { margin-left: .3rem; }
-.board-comment-composer__hint,
-.board-comment-composer__error { margin: .4rem 0 0; font-size: .78rem; }
-.board-comment-composer__hint { color: #64748b; }
-.board-comment-composer__error { color: #dc2626; }
-
-.board-comments__list { margin-top: 1.8rem; }
-.board-comment { margin-top: 1.35rem; }
-.board-comment__header { display: flex; align-items: center; justify-content: space-between; min-height: 18px; }
-.board-comment__meta { display: flex; align-items: baseline; gap: .55rem; font-size: .8rem; }
-.board-comment__meta b { color: #1e293b; }
-.board-comment__meta span { color: #64748b; font-size: .75rem; }
-.board-comment__text { margin: .2rem 0 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.45; }
-.board-comment__actions { gap: .65rem; margin-top: .35rem; }
-.board-comment__actions button { padding: .25rem .2rem; color: #0f172a; }
-.board-comment__like { padding: .25rem .35rem; color: #94a3b8; }
-.board-comment__actions i { margin-right: .2rem; }
-.board-comment__replies-toggle {
-  position: relative;
-  margin-top: .3rem;
-  padding: .25rem .35rem;
-  border: 0;
-  background: transparent;
-  color: #2563eb;
-  cursor: pointer;
-  font-size: .78rem;
-  font-weight: 700;
-}
-.board-comment__replies-toggle:hover { background: #eff6ff; border-radius: 4px; }
-.board-comment__replies-toggle i { margin-left: .15rem; }
-.board-comment__replies-toggle::before { content: ''; position: absolute; left: -3.15rem; bottom: .8rem; width: 1.5rem; height: 2.2rem; border-left: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; border-radius: 0 0 0 .75rem; pointer-events: none; }
-.board-comment__replies { margin-top: .2rem; padding-left: 1rem; border-left: 2px solid #e2e8f0; }
-.board-comments__status,
-.board-comments__empty { margin: 2rem 0; color: #64748b; text-align: center; }
-.board-comments__empty i { font-size: 1.5rem; }
-
 @media (max-width: 560px) {
-  .board-comments__heading { flex-wrap: wrap; justify-content: space-between; gap: .5rem; }
-  .board-comments__voter { width: 100%; margin-left: 0; }
-  .board-comments__voter select { flex: 1; max-width: none; }
   .board-post-voting { align-items: stretch; flex-direction: column; }
   .board-post-voting__identity select { flex: 1; min-width: 0; max-width: none; }
   .board-post-voting__buttons { justify-content: center; }
-  .board-comment-composer, .board-comment { gap: .6rem; }
-  .board-comment-avatar { flex-basis: 32px; width: 32px; height: 32px; font-size: .68rem; }
-  .board-comment__replies { padding-left: .6rem; }
-  .board-comment__replies-toggle::before { left: -2.65rem; width: 1.2rem; }
   .board-card__notes-btn span { display: none; }
   .board-card__notes-btn { width: 30px; height: 30px; justify-content: center; padding: 0 !important; }
   .board-card__notes-btn i { margin: 0 !important; }

@@ -7,7 +7,7 @@ const peopleUtil = require('people/people_util');
 const sha1 = require('channels/sha1');
 const fileUtil = require('files/files_util');
 const fileDown = require('files/files_downloads');
-const chatEmoji = require('chat/chat_emoji');
+const { CommentsSection } = require('comments');
 
 const filesUploadHashes = {
   // figure out a better way later.
@@ -643,150 +643,6 @@ async function addvote(voteType, vchannelId, vpostId, vauthorId, vcommentId) {
   }
 }
 
-/* Modern threaded comment experience for channel posts. */
-const ChannelComments = () => {
-  let replyTo = null;
-  let text = '';
-  let identity = null;
-  let submitting = false;
-  let error = '';
-  let showEmojiPicker = false;
-  const expandedReplies = {};
-
-  const metaOf = (comment) => (comment && comment.mMeta) || {};
-  const idOf = (comment) => metaOf(comment).mMsgId || comment.msgId;
-  const nameOf = (id) => rs.userList.username(id) || rs.userList.userMap[id] || `${String(id || 'Unknown').slice(0, 10)}…`;
-  const dateOf = (value) => {
-    const seconds = value && typeof value === 'object' ? value.xint64 : value;
-    return Number(seconds) ? new Date(Number(seconds) * 1000).toLocaleString() : '';
-  };
-
-  function tree(threadId) {
-    const nodes = {};
-    const roots = [];
-    Object.keys(Data.Comments[threadId] || {}).forEach((key) => {
-      const entry = Data.Comments[threadId][key];
-      const comment = entry.comment || entry;
-      if (idOf(comment)) nodes[idOf(comment)] = { comment, children: [] };
-    });
-    Object.keys(nodes).forEach((key) => {
-      const node = nodes[key];
-      const parent = metaOf(node.comment).mParentId;
-      if (parent && parent !== threadId && nodes[parent]) nodes[parent].children.push(node);
-      else roots.push(node);
-    });
-    const chronological = (a, b) => Number(metaOf(a.comment).mPublishTs && (metaOf(a.comment).mPublishTs.xint64 || metaOf(a.comment).mPublishTs)) - Number(metaOf(b.comment).mPublishTs && (metaOf(b.comment).mPublishTs.xint64 || metaOf(b.comment).mPublishTs));
-    roots.sort(chronological);
-    Object.keys(nodes).forEach((key) => nodes[key].children.sort(chronological));
-    return roots;
-  }
-
-  async function submit(vnode) {
-    const comment = text.trim();
-    if (!comment || !identity || submitting) return;
-    submitting = true;
-    error = '';
-    try {
-      const res = await rs.rsJsonApiRequest('/rsgxschannels/createCommentV2', {
-        channelId: vnode.attrs.channelId,
-        threadId: vnode.attrs.threadId,
-        comment,
-        authorId: identity,
-        parentId: replyTo ? idOf(replyTo) : vnode.attrs.threadId,
-      });
-      if (!res || !res.body || res.body.retval === false) {
-        error = (res && res.body && res.body.errorMessage) || 'Your comment could not be posted.';
-        return;
-      }
-      text = '';
-      replyTo = null;
-      await util.updatedisplaychannels(vnode.attrs.channelId);
-    } catch (submitError) {
-      console.warn('Channel comment submission failed', submitError);
-      error = 'Your comment could not be posted. Please try again.';
-    } finally {
-      submitting = false;
-      m.redraw();
-    }
-  }
-
-  function renderComment(node, vnode) {
-    const comment = node.comment;
-    const meta = metaOf(comment);
-    const id = idOf(comment);
-    const name = nameOf(meta.mAuthorId);
-    const votes = (Data.Votes[meta.mThreadId] && Data.Votes[meta.mThreadId][id]) || { upvotes: 0, downvotes: 0 };
-    const repliesExpanded = expandedReplies[id] === true;
-    return m('.board-comment', { key: id }, [
-      m('.board-comment-avatar', m(peopleUtil.IdentityAvatar, {
-        identityId: meta.mAuthorId,
-        name,
-        size: '100%',
-      })),
-      m('.board-comment__content', [
-        m('.board-comment__header', [
-          m('.board-comment__meta', [m('b', name), dateOf(meta.mPublishTs) ? m('span', dateOf(meta.mPublishTs)) : null]),
-        ]),
-        m('p.board-comment__text', comment.mComment || comment.comment || ''),
-        m('.board-comment__actions', [
-          m('button[type=button]', { disabled: !vnode.attrs.voteIdentity, onclick: () => addvote(util.GXS_VOTE_UP, vnode.attrs.channelId, vnode.attrs.threadId, vnode.attrs.voteIdentity, id) }, [m('i.fas.fa-thumbs-up'), ` ${votes.upvotes || 0}`]),
-          m('button[type=button]', { disabled: !vnode.attrs.voteIdentity, onclick: () => addvote(util.GXS_VOTE_DOWN, vnode.attrs.channelId, vnode.attrs.threadId, vnode.attrs.voteIdentity, id) }, m('i.fas.fa-thumbs-down')),
-          m('button[type=button]', { onclick: () => { replyTo = comment; text = ''; error = ''; } }, 'Reply'),
-        ]),
-        node.children.length ? m('button.board-comment__replies-toggle[type=button]', { 'aria-expanded': repliesExpanded, onclick: () => { expandedReplies[id] = !repliesExpanded; } }, [`${node.children.length} ${node.children.length === 1 ? 'reply' : 'replies'} `, m('i.fas', { class: repliesExpanded ? 'fa-chevron-up' : 'fa-chevron-down' })]) : null,
-        node.children.length && repliesExpanded ? m('.board-comment__replies', node.children.map((child) => renderComment(child, vnode))) : null,
-      ]),
-    ]);
-  }
-
-  return {
-    view: (vnode) => {
-      const identities = (vnode.attrs.identities || []).filter((id) => Number(id) !== 0);
-      if (!identity && identities.length) identity = identities[0];
-      const comments = tree(vnode.attrs.threadId);
-      return m('.board-comments.channel-comments', [
-        m('.board-comments__heading', [
-          m('h3', `${Object.keys(Data.Comments[vnode.attrs.threadId] || {}).length} Comment${Object.keys(Data.Comments[vnode.attrs.threadId] || {}).length === 1 ? '' : 's'}`),
-          m('span', [m('i.fas.fa-sort-amount-down'), ' Oldest first']),
-          m('.board-comments__voter', [
-            m('label[for=channel-comment-voter]', 'Voter identity'),
-            m('select#channel-comment-voter', {
-              value: vnode.attrs.voteIdentity || '',
-              disabled: identities.length === 0,
-              onchange: (e) => vnode.attrs.onVoteIdentity(e.target.value),
-            }, identities.length
-              ? identities.map((id) => m('option', { value: id }, nameOf(id)))
-              : m('option', { value: '' }, vnode.attrs.identitiesLoading ? 'Loading identities…' : 'No identity available')),
-          ]),
-        ]),
-        m('.board-comment-composer', [
-          m('.board-comment-avatar', m(peopleUtil.IdentityAvatar, {
-            identityId: identity,
-            name: nameOf(identity),
-            size: '100%',
-          })),
-          m('.board-comment-composer__body', [
-            replyTo ? m('.board-comment-composer__replying', ['Replying to ', m('b', nameOf(metaOf(replyTo).mAuthorId)), m('button[type=button][aria-label=Cancel reply]', { onclick: () => { replyTo = null; text = ''; } }, m('i.fas.fa-times'))]) : null,
-            identities.length ? m('select.board-comment-composer__identity', { value: identity, onchange: (e) => { identity = e.target.value; } }, identities.map((id) => m('option', { value: id }, nameOf(id)))) : null,
-            m('textarea.board-comment-composer__input[rows=1][placeholder=Add a comment…]', { value: text, disabled: !identity || submitting, oninput: (e) => { text = e.target.value; }, onkeydown: (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') submit(vnode); } }),
-            !identity ? m('p.board-comment-composer__hint', vnode.attrs.identitiesLoading ? 'Loading identities…' : 'Create or select an identity to post a comment.') : null,
-            error ? m('p.board-comment-composer__error', error) : null,
-            m('.board-comment-composer__actions', [
-              m('.board-comment-composer__emoji', { style: { position: 'relative', marginRight: 'auto' } }, [
-                m('button[type=button][title=Insert emoji][aria-label=Insert emoji]', { style: { width: '32px', height: '32px', padding: '0', borderRadius: '50%', border: '0', boxShadow: 'none', background: showEmojiPicker ? '#e0f2fe' : 'transparent', color: '#475569', fontSize: '1.15rem' }, onclick: () => { showEmojiPicker = !showEmojiPicker; } }, m('i.fas.fa-smile')),
-                showEmojiPicker ? m('.board-comment-emoji-popover', { style: { position: 'absolute', zIndex: '20', top: '38px', left: '0', width: '250px', maxHeight: '180px', overflowY: 'auto', padding: '.5rem', display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: '.2rem', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px', boxShadow: '0 8px 20px rgba(0,0,0,.16)' } }, chatEmoji.EMOJI_DATA.Smileys.slice(0, 48).map((emoji) => m('button[type=button]', { style: { width: '28px', height: '28px', padding: '0', border: '0', boxShadow: 'none', background: 'transparent', fontSize: '1.1rem' }, onclick: () => { text += emoji; showEmojiPicker = false; } }, emoji))) : null,
-              ]),
-              text || replyTo ? m('button.board-comment-composer__cancel[type=button]', { onclick: () => { text = ''; replyTo = null; error = ''; } }, 'Cancel') : null,
-              m('button.board-comment-composer__submit[type=button]', { disabled: !text.trim() || !identity || submitting, onclick: () => submit(vnode) }, submitting ? 'Posting…' : 'Comment'),
-            ]),
-          ]),
-        ]),
-        comments.length ? m('.board-comments__list', comments.map((node) => renderComment(node, vnode))) : m('.board-comments__empty', [m('i.fas.fa-comment'), m('p', 'No comments yet. Start the conversation.')]),
-      ]);
-    },
-  };
-};
-
 const PostView = () => {
   let post = {};
   const filesInfo = {};
@@ -920,13 +776,30 @@ const PostView = () => {
             )
           ),
         ]),
-        m(ChannelComments, {
-          channelId: v.attrs.channelId,
-          threadId: v.attrs.msgId,
+        m(CommentsSection, {
+          comments: Data.Comments[v.attrs.msgId] || {},
+          rootThreadId: v.attrs.msgId,
           identities: ownId,
           voteIdentity,
           identitiesLoading,
           onVoteIdentity: (id) => { voteIdentity = id; },
+          onSubmitComment: async ({ text, authorId, parentId }) => {
+            const res = await rs.rsJsonApiRequest('/rsgxschannels/createCommentV2', {
+              channelId: v.attrs.channelId,
+              threadId: v.attrs.msgId,
+              comment: text,
+              authorId,
+              parentId: parentId || v.attrs.msgId,
+            });
+            if (!res || !res.body || res.body.retval === false) {
+              throw new Error((res && res.body && res.body.errorMessage) || 'Your comment could not be posted.');
+            }
+            await util.updatedisplaychannels(v.attrs.channelId);
+          },
+          onVoteComment: async ({ commentId, voteType, voteIdentity: voterId }) => {
+            await addvote(voteType, v.attrs.channelId, v.attrs.msgId, voterId, commentId);
+          },
+          getCommentVotes: (id) => (Data.Votes[v.attrs.msgId] && Data.Votes[v.attrs.msgId][id]) || { upvotes: 0, downvotes: 0 },
         }),
       ]),
       ];

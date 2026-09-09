@@ -3,7 +3,7 @@ const util = require('boards/boards_util');
 const boardKanban = require('boards/board_kanban');
 const rs = require('rswebui');
 const peopleUtil = require('people/people_util');
-const chatEmoji = require('chat/chat_emoji');
+const { CommentsSection } = require('comments');
 const Data = util.Data;
 
 function createboard() {
@@ -506,46 +506,11 @@ function PostView() {
   let comments = [];
   let loadingComments = true;
   let identities = [];
-  let authorId = null;
   let voteIdentity = null;
   let postVoteSubmitting = false;
-  let replyTo = null;
-  let composerText = '';
-  let submitting = false;
-  let submitError = '';
   let notesExpanded = false;
-  let showEmojiPicker = false;
-  const expandedReplies = {};
 
-  const metaOf = (comment) => (comment && comment.mMeta) || {};
-  const idOf = (comment) => metaOf(comment).mMsgId || comment.msgId || comment.id;
-  const parentOf = (comment) => metaOf(comment).mParentId || comment.parentId || '';
-  const textOf = (comment) => comment.mComment || comment.comment || comment.mBody || '';
-  const nameOf = (id) => !id || Number(id) === 0 ? 'Anonymous' : (rs.userList.username(id) || rs.userList.userMap[id] || `${String(id).slice(0, 10)}…`);
-  const timeOf = (value) => {
-    const seconds = value && typeof value === 'object' ? value.xint64 : value;
-    const date = Number(seconds) ? new Date(Number(seconds) * 1000) : null;
-    return date && !Number.isNaN(date.getTime()) ? date.toLocaleString() : '';
-  };
-
-  function treeOfComments() {
-    const nodes = {};
-    const roots = [];
-    comments.forEach((comment) => {
-      const id = idOf(comment);
-      if (id) nodes[id] = { comment, children: [] };
-    });
-    Object.keys(nodes).forEach((id) => {
-      const node = nodes[id];
-      const parent = parentOf(node.comment);
-      if (parent && nodes[parent] && parent !== id) nodes[parent].children.push(node);
-      else roots.push(node);
-    });
-    const chronological = (a, b) => Number(metaOf(a.comment).mPublishTs && (metaOf(a.comment).mPublishTs.xint64 || metaOf(a.comment).mPublishTs)) - Number(metaOf(b.comment).mPublishTs && (metaOf(b.comment).mPublishTs.xint64 || metaOf(b.comment).mPublishTs));
-    roots.sort(chronological);
-    Object.keys(nodes).forEach((id) => nodes[id].children.sort(chronological));
-    return roots;
-  }
+  const nameOf = (id) => (!id || Number(id) === 0 ? 'Anonymous' : (rs.userList.username(id) || rs.userList.userMap[id] || `${String(id).slice(0, 10)}…`));
 
   async function loadComments(forumId, msgId) {
     loadingComments = true;
@@ -554,7 +519,7 @@ function PostView() {
       const res = await rs.rsJsonApiRequest('/rsPosted/getBoardAllContent', { boardId: forumId });
       if (res && res.body && res.body.retval) {
         comments = (res.body.comments || res.body.commentList || []).filter((comment) => {
-          const meta = metaOf(comment);
+          const meta = (comment && comment.mMeta) || {};
           return meta.mThreadId === msgId || (!meta.mThreadId && meta.mParentId === msgId);
         });
       }
@@ -563,36 +528,6 @@ function PostView() {
     }
     loadingComments = false;
     m.redraw();
-  }
-
-  async function submitComment(forumId, msgId) {
-    const comment = composerText.trim();
-    if (!comment || !authorId || submitting) return;
-    submitting = true;
-    submitError = '';
-    try {
-      const res = await rs.rsJsonApiRequest('/rsPosted/createCommentV2', {
-        boardId: forumId,
-        postId: msgId,
-        comment,
-        authorId,
-        parentId: replyTo ? idOf(replyTo) : msgId,
-      });
-      if (!res || !res.body || res.body.retval === false) {
-        submitError = (res && res.body && res.body.errorMessage) || 'Your comment could not be posted.';
-        return;
-      }
-      composerText = '';
-      replyTo = null;
-      await loadComments(forumId, msgId);
-      await util.updateDisplayBoards(forumId);
-    } catch (e) {
-      console.warn('PostView: failed to submit comment', e);
-      submitError = 'Your comment could not be posted. Please try again.';
-    } finally {
-      submitting = false;
-      m.redraw();
-    }
   }
 
   return {
@@ -606,7 +541,6 @@ function PostView() {
       // A board comment must be signed by one of the user's identities.
       peopleUtil.ownIds((ids) => {
         identities = (ids || []).filter((id) => Number(id) !== 0);
-        authorId = identities[0] || null;
         voteIdentity = identities[0] || null;
         m.redraw();
       });
@@ -708,86 +642,37 @@ function PostView() {
             hasLongNotes ? m('button.post-description__toggle[type=button]', { onclick: () => { notesExpanded = !notesExpanded; } }, notesExpanded ? 'Show less' : '…more') : null,
           ]) : null,
           m('hr'),
-          m('.board-comments', [
-            m('.board-comments__heading', [
-              m('h3', `${comments.length} Comment${comments.length === 1 ? '' : 's'}`),
-              m('span', [m('i.fas.fa-sort-amount-down'), ' Oldest first']),
-            ]),
-            m('.board-comment-composer', [
-              m('.board-comment-avatar', m(peopleUtil.IdentityAvatar, {
-                identityId: authorId,
-                name: nameOf(authorId),
-                size: '100%',
-              })),
-              m('.board-comment-composer__body', [
-                replyTo ? m('.board-comment-composer__replying', ['Replying to ', m('b', nameOf(metaOf(replyTo).mAuthorId)), m('button[type=button][aria-label=Cancel reply]', { onclick: () => { replyTo = null; composerText = ''; } }, m('i.fas.fa-times'))]) : null,
-                identities.length ? m('select.board-comment-composer__identity', { value: authorId, onchange: (e) => { authorId = e.target.value; } }, identities.map((id) => m('option', { value: id }, nameOf(id)))) : null,
-                m('textarea.board-comment-composer__input[rows=1][placeholder=Add a comment…]', { value: composerText, disabled: !authorId || submitting, oninput: (e) => { composerText = e.target.value; }, onkeydown: (e) => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') submitComment(forumId, msgId); } }),
-                !authorId ? m('p.board-comment-composer__hint', 'Create or select an identity to post a comment.') : null,
-                submitError ? m('p.board-comment-composer__error', submitError) : null,
-                m('.board-comment-composer__actions', [
-                  m('.board-comment-composer__emoji', { style: { position: 'relative', marginRight: 'auto' } }, [
-                    m('button[type=button][title=Insert emoji][aria-label=Insert emoji]', { style: { width: '32px', height: '32px', padding: '0', borderRadius: '50%', border: '0', boxShadow: 'none', background: showEmojiPicker ? '#e0f2fe' : 'transparent', color: '#475569', fontSize: '1.15rem' }, onclick: () => { showEmojiPicker = !showEmojiPicker; } }, m('i.fas.fa-smile')),
-                    showEmojiPicker ? m('.board-comment-emoji-popover', { style: { position: 'absolute', zIndex: '20', top: '38px', left: '0', width: '250px', maxHeight: '180px', overflowY: 'auto', padding: '.5rem', display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: '.2rem', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '8px', boxShadow: '0 8px 20px rgba(0,0,0,.16)' } }, chatEmoji.EMOJI_DATA.Smileys.slice(0, 48).map((emoji) => m('button[type=button]', { style: { width: '28px', height: '28px', padding: '0', border: '0', boxShadow: 'none', background: 'transparent', fontSize: '1.1rem' }, onclick: () => { composerText += emoji; showEmojiPicker = false; } }, emoji))) : null,
-                  ]),
-                  composerText || replyTo ? m('button.board-comment-composer__cancel[type=button]', { onclick: () => { composerText = ''; replyTo = null; submitError = ''; } }, 'Cancel') : null,
-                  m('button.board-comment-composer__submit[type=button]', { disabled: !composerText.trim() || !authorId || submitting, onclick: () => submitComment(forumId, msgId) }, submitting ? 'Posting…' : 'Comment')
-                ])
-              ])
-            ]),
-            loadingComments ? m('.board-comments__status', [m('i.fas.fa-spinner.fa-spin'), ' Loading comments…'])
-              : comments.length === 0 ? m('.board-comments__empty', [m('i.fas.fa-comment'), m('p', 'No comments yet. Start the conversation.')])
-              : m('.board-comments__list', treeOfComments().map((node) => renderComment(node, 0, forumId, msgId))),
-          ]),
+          m(CommentsSection, {
+            comments,
+            loading: loadingComments,
+            rootThreadId: msgId,
+            identities,
+            voteIdentity,
+            onVoteIdentity: (id) => { voteIdentity = id; },
+            onSubmitComment: async ({ text, authorId, parentId }) => {
+              const res = await rs.rsJsonApiRequest('/rsPosted/createCommentV2', {
+                boardId: forumId,
+                postId: msgId,
+                comment: text,
+                authorId,
+                parentId: parentId || msgId,
+              });
+              if (!res || !res.body || res.body.retval === false) {
+                throw new Error((res && res.body && res.body.errorMessage) || 'Your comment could not be posted.');
+              }
+              await loadComments(forumId, msgId);
+              await util.updateDisplayBoards(forumId);
+            },
+            onVoteComment: async ({ commentId, voteType, voteIdentity: voterId }) => {
+              await util.voteForComment(forumId, msgId, commentId, voteType, voterId);
+              await loadComments(forumId, msgId);
+            },
+          }),
         ]),
       ];
     },
   };
-
-  function renderComment(node, depth, forumId, msgId) {
-    const comment = node.comment;
-    const key = idOf(comment);
-    const meta = metaOf(comment);
-    const name = nameOf(meta.mAuthorId);
-    const repliesCount = node.children.length;
-    const repliesExpanded = expandedReplies[key] === true;
-    return m('.board-comment', { key: idOf(comment), class: depth ? 'board-comment--reply' : '' }, [
-      m('.board-comment-avatar', m(peopleUtil.IdentityAvatar, {
-        identityId: meta.mAuthorId,
-        name,
-        size: '100%',
-      })),
-      m('.board-comment__content', [
-        m('.board-comment__header', [
-          m('.board-comment__meta', [m('b', name), timeOf(meta.mPublishTs) ? m('span', timeOf(meta.mPublishTs)) : null]),
-        ]),
-        m('p.board-comment__text', textOf(comment)),
-        m('.board-comment__actions', [
-          m('button[type=button]', {
-            disabled: !voteIdentity,
-            onclick: () => util.voteForComment(forumId, msgId, key, util.GXS_VOTE_UP, voteIdentity),
-          }, [m('i.fas.fa-thumbs-up'), ` ${comment.mUpVotes || 0}`]),
-          m('button[type=button]', {
-            disabled: !voteIdentity,
-            onclick: () => util.voteForComment(forumId, msgId, key, util.GXS_VOTE_DOWN, voteIdentity),
-          }, m('i.fas.fa-thumbs-down')),
-          m('button[type=button]', { onclick: () => { replyTo = comment; composerText = ''; submitError = ''; } }, 'Reply')
-        ]),
-        repliesCount ? m('button.board-comment__replies-toggle[type=button]', {
-          'aria-expanded': repliesExpanded,
-          onclick: () => { expandedReplies[key] = !repliesExpanded; },
-        }, [
-          `${repliesCount} ${repliesCount === 1 ? 'reply' : 'replies'} `,
-          m('i.fas', { class: repliesExpanded ? 'fa-chevron-up' : 'fa-chevron-down' }),
-        ]) : null,
-        repliesCount && repliesExpanded
-          ? m('.board-comment__replies', node.children.map((reply) => renderComment(reply, depth + 1, forumId, msgId)))
-          : null,
-      ])
-    ]);
-  }
 }
-
 module.exports = {
   BoardView,
   PostView,

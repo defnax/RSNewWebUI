@@ -124,9 +124,13 @@ function popupMessage(message, modalClass = '') {
   m.mount(container, Popup);
 }
 
+const { CommentsSection, ThreadedComments } = require('comments');
+
 module.exports = {
   Sidebar,
   SidebarQuickView,
   popupMessage,
   closePopupMessage,
+  CommentsSection,
+  ThreadedComments,
 };
