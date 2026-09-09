@@ -930,6 +930,8 @@ const ChatLobbyModel = {
   },
 
   loadHistory(id, type) {
+    const requestToken = {};
+    this.historyRequestToken = requestToken;
     this.historyLoaded = this.HISTORY_PAGE;
     this.historyExhausted = false;
     this.historyLoading = false;
@@ -941,6 +943,9 @@ const ChatLobbyModel = {
         loadCount: this.HISTORY_PAGE,
       },
       (data, success) => {
+        // A room switch or newer history load makes this response obsolete.
+        if (this.lastLobbyId !== id || this.currentLobby?.chatType !== type
+          || this.historyRequestToken !== requestToken) return;
         if (success && data.msgs) {
           if (data.msgs.length < this.HISTORY_PAGE) this.historyExhausted = true;
           this.addMessages(data.msgs);
@@ -961,6 +966,8 @@ const ChatLobbyModel = {
 
     const id = this.lastLobbyId;
     if (!id) return false;
+    const type = detail.chatType;
+    const requestToken = this.historyRequestToken;
 
     this.historyLoading = true;
     const wanted = (this.historyLoaded || this.HISTORY_PAGE) + this.HISTORY_PAGE * 2;
@@ -968,10 +975,12 @@ const ChatLobbyModel = {
     rs.rsJsonApiRequest(
       '/rsHistory/getMessages',
       {
-        chatPeerId: this.historyChatPeerId(id, detail.chatType),
+        chatPeerId: this.historyChatPeerId(id, type),
         loadCount: wanted,
       },
       (data, success) => {
+        if (this.lastLobbyId !== id || this.currentLobby?.chatType !== type
+          || this.historyRequestToken !== requestToken) return;
         this.historyLoading = false;
         if (!success || !data.msgs) {
           if (done) done();
