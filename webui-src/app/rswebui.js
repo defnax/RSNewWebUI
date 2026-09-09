@@ -137,10 +137,6 @@ function resetApiStats() {
 
 const connectionState = {
   status: true,
-  //  Status of the last HTTP response, or 0 when the request never reached the
-  //  core. Recorded in extract() so it stays available when the body fails to
-  //  parse, which is how a truncated response shows up.
-  lastHttpStatus: 0,
 };
 
 function rsJsonApiRequest(
@@ -162,6 +158,9 @@ function rsJsonApiRequest(
   apiStats.pending += 1;
   apiStats.total += 1;
   const startedAt = performance.now();
+  // Keep status local to this request, including when deserialization fails.
+  // A request that receives no HTTP response must retain status 0.
+  let httpStatus = 0;
   // NOTE: After upgrading to mithrilv2, options.extract is no longer required
   // since the status will become part of return value and then
   // handleDeserialize can also be simply passed as options.deserialize
@@ -171,7 +170,7 @@ function rsJsonApiRequest(
       url: loginKey.url + path,
       async,
       extract: (xhr) => {
-        connectionState.lastHttpStatus = xhr.status;
+        httpStatus = xhr.status;
         // Empty string is not valid json and fails on parse
         const response = xhr.responseText || '""';
         return {
@@ -223,7 +222,7 @@ function rsJsonApiRequest(
       //  Reaching here after a valid 200 means the body could not be parsed,
       //  i.e. the response was cut short. The core answered and is still there;
       //  it is the answer that did not survive the trip.
-      connectionState.status = connectionState.lastHttpStatus === 200;
+      connectionState.status = httpStatus === 200;
       try {
         callback(e, false);
       } catch (cbErr) {
@@ -236,7 +235,7 @@ function rsJsonApiRequest(
       //  where nothing catches it: the button silently does nothing. Every
       //  defensive check in the code base tests res.body.retval or res.body, so
       //  an empty body still reads as a failure to all of them.
-      return { status: connectionState.lastHttpStatus, statusText: 'request failed', body: {} };
+      return { status: httpStatus, statusText: 'request failed', body: {} };
     });
 }
 
