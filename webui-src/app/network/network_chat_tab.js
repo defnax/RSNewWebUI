@@ -52,8 +52,37 @@ function formatDirectChatImage(file, callback) {
   reader.readAsDataURL(file);
 }
 
-function pollHashStatusForDirectChat(localpath) {
-  rs.rsJsonApiRequest('/rsFiles/ExtraFileStatus', { localpath }, (data) => {
+const HASH_TIMEOUT_MS = 5 * 60 * 1000;
+let hashJob = null;
+
+function cancelDirectChatHash(error = '') {
+  if (hashJob) {
+    clearTimeout(hashJob.pollTimer);
+    clearTimeout(hashJob.deadlineTimer);
+    hashJob = null;
+  }
+  State.isHashing = false;
+  State.hashingError = error;
+}
+
+function isActiveHashJob(job) {
+  if (hashJob !== job) return false;
+  if (State.currentChatPeerId !== job.peerId || State.selectedFriendGpgId !== job.friendId) {
+    cancelDirectChatHash();
+    return false;
+  }
+  return true;
+}
+
+function pollHashStatusForDirectChat(localpath, job) {
+  if (!isActiveHashJob(job)) return;
+  rs.rsJsonApiRequest('/rsFiles/ExtraFileStatus', { localpath }, (data, success) => {
+    if (!isActiveHashJob(job)) return;
+    if (!success) {
+      cancelDirectChatHash('Could not check file hashing. Please try again.');
+      m.redraw();
+      return;
+    }
     if (data && data.retval && data.info && data.info.hash && data.info.hash !== '0000000000000000000000000000000000000000') {
       const info = data.info;
       const sizeNum = info.size.xint64 || parseInt(info.size.xstr64) || info.size;
@@ -61,13 +90,11 @@ function pollHashStatusForDirectChat(localpath) {
 
       State.chatInputMsg = State.chatInputMsg ? State.chatInputMsg + '\n' + fileLink : fileLink;
       State.showAttachModal = false;
-      State.isHashing = false;
+      cancelDirectChatHash();
       State.attachPath = '';
       m.redraw();
     } else {
-      if (State.isHashing) {
-        setTimeout(() => pollHashStatusForDirectChat(localpath), 1000);
-      }
+      job.pollTimer = setTimeout(() => pollHashStatusForDirectChat(localpath, job), 1000);
     }
   });
 }
@@ -84,7 +111,10 @@ const ChatTab = () => {
 
   return {
     oncreate: () => document.addEventListener('click', onDocClick, true),
-    onremove: () => document.removeEventListener('click', onDocClick, true),
+    onremove: () => {
+      document.removeEventListener('click', onDocClick, true);
+      cancelDirectChatHash();
+    },
     view: () => {
       const gpgId = State.selectedFriendGpgId;
       const friend = Data.gpgDetails[gpgId];
@@ -399,6 +429,17 @@ const ChatTab = () => {
                 disabled: State.isHashing || !State.attachPath.trim() || State.attachBrowseHint,
                 onclick: () => {
                   const path = State.attachPath.trim();
+                  cancelDirectChatHash();
+                  const job = {
+                    peerId: State.currentChatPeerId,
+                    friendId: State.selectedFriendGpgId,
+                  };
+                  hashJob = job;
+                  job.deadlineTimer = setTimeout(() => {
+                    if (hashJob !== job) return;
+                    cancelDirectChatHash('File hashing timed out after 5 minutes. Please try again.');
+                    m.redraw();
+                  }, HASH_TIMEOUT_MS);
                   State.isHashing = true;
                   State.hashingError = '';
                   m.redraw();
@@ -408,19 +449,19 @@ const ChatTab = () => {
                     period: 86400 * 7,
                     flags: 0
                   }, (data, success) => {
+                    if (!isActiveHashJob(job)) return;
                     if (success && data.retval) {
-                      pollHashStatusForDirectChat(path);
+                      pollHashStatusForDirectChat(path, job);
                     } else {
-                      State.isHashing = false;
-                      State.hashingError = 'Failed to initiate file hashing. Check the path and try again.';
+                      cancelDirectChatHash('Failed to initiate file hashing. Check the path and try again.');
                       m.redraw();
                     }
                   });
                 }
               }, [m('i.fas.fa-link'), m('span', ' Attach')]),
               m('button.btn.red', {
-                disabled: State.isHashing,
                 onclick: () => {
+                  cancelDirectChatHash();
                   State.showAttachModal = false;
                   State.attachPath = '';
                   State.attachBrowseHint = false;
