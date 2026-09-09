@@ -216,9 +216,12 @@ function isSystemMsg(msg) {
   );
 }
 
+let historyPreloadInFlight = null;
+
 function preloadNetworkChatHistory() {
+  if (historyPreloadInFlight) return historyPreloadInFlight;
   const gpgIds = Object.keys(Data.gpgDetails || {});
-  gpgIds.forEach((gpgId) => {
+  const tasks = gpgIds.map((gpgId) => async () => {
     if (!gpgId || gpgId === '0000000000000000') return;
 
     const friend = Data.gpgDetails[gpgId];
@@ -226,29 +229,34 @@ function preloadNetworkChatHistory() {
       ((friend && friend.locations) || []).map((location) => location.id).filter(Boolean)
     ));
 
-    Promise.all(sslIds.map((sslId) => new Promise((resolve) => {
-      rs.rsJsonApiRequest(
+    // Each queued friend loads its locations sequentially, keeping the total
+    // number of history requests within the network queue's concurrency limit.
+    const messageGroups = [];
+    for (const sslId of sslIds) {
+      await rs.rsJsonApiRequest(
         '/rsHistory/getMessages',
         { chatPeerId: directChatId(sslId), loadCount: 20 },
-        (msgData, success) => resolve(
+        (msgData, success) => messageGroups.push(
           success && msgData && Array.isArray(msgData.msgs) ? msgData.msgs : []
         )
-      ).catch(() => resolve([]));
-    }))).then((messageGroups) => {
-      const userMsgs = messageGroups.flat().filter(
-        (message) => !message.isSystem && !isSystemMsg(message.message || message.msg)
-      ).sort(
-        (a, b) => (a.sendTime || a.recvTime || 0) - (b.sendTime || b.recvTime || 0)
-      );
-      if (userMsgs.length === 0) return;
-      const last = userMsgs[userMsgs.length - 1];
-      State.chatHistoryMap[gpgId] = {
-        lastMsg: last.message || last.msg || '',
-        lastTime: last.sendTime || last.recvTime || Math.floor(Date.now() / 1000),
-      };
-      m.redraw();
-    });
+      ).catch(() => {});
+    }
+    const userMsgs = messageGroups.flat().filter(
+      (message) => !message.isSystem && !isSystemMsg(message.message || message.msg)
+    ).sort(
+      (a, b) => (a.sendTime || a.recvTime || 0) - (b.sendTime || b.recvTime || 0)
+    );
+    if (userMsgs.length === 0) return;
+    const last = userMsgs[userMsgs.length - 1];
+    State.chatHistoryMap[gpgId] = {
+      lastMsg: last.message || last.msg || '',
+      lastTime: last.sendTime || last.recvTime || Math.floor(Date.now() / 1000),
+    };
+    m.redraw();
   });
+  historyPreloadInFlight = Data.runQueued(tasks)
+    .finally(() => { historyPreloadInFlight = null; });
+  return historyPreloadInFlight;
 }
 
 function receiveDirectChatMessage(chatMessage) {

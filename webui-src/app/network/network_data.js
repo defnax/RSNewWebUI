@@ -18,7 +18,7 @@ const GPG_DETAILS_TTL_MS = 5 * 60 * 1000;
 let refreshInFlight = null;
 let refreshedAt = 0;
 
-function runQueued(tasks, concurrency) {
+function runQueued(tasks, concurrency = SWEEP_CONCURRENCY) {
   return new Promise((resolve) => {
     let next = 0;
     let finished = 0;
@@ -52,6 +52,7 @@ async function loadOnlineIds() {
 
 const Data = {
   gpgDetails: {},
+  runQueued,
 };
 
 //  A remembered friend is a placeholder shown while the core catches up with an
