@@ -1,9 +1,6 @@
 const m = require('mithril');
 const Sidebar = () => {
   let mobileOpen = false;
-  let isMobileWidth = false;
-  let widthQuery;
-  let onWidthChange;
 
   const links = (v) => v.attrs.tabs.map((panelName) => {
     const href = v.attrs.baseRoute + panelName;
@@ -20,24 +17,8 @@ const Sidebar = () => {
   });
 
   return {
-    oninit: () => {
-      widthQuery = window.matchMedia('(max-width: 700px)');
-      isMobileWidth = widthQuery.matches;
-      onWidthChange = (event) => {
-        isMobileWidth = event.matches;
-        if (!isMobileWidth) mobileOpen = false;
-        m.redraw();
-      };
-      if (widthQuery.addEventListener) widthQuery.addEventListener('change', onWidthChange);
-      else widthQuery.addListener(onWidthChange);
-    },
-    onremove: () => {
-      if (!widthQuery || !onWidthChange) return;
-      if (widthQuery.removeEventListener) widthQuery.removeEventListener('change', onWidthChange);
-      else widthQuery.removeListener(onWidthChange);
-    },
     view: (v) => {
-      if (!v.attrs.mobileDrawer || !isMobileWidth) return m('.sidebar', links(v));
+      if (!v.attrs.mobileDrawer) return m('.sidebar', links(v));
       return m('.sidebar-drawer', [
         m('button.sidebar-mobile-toggle[type=button][aria-label=Open navigation]', {
           'aria-expanded': mobileOpen,
@@ -87,25 +68,23 @@ function closePopupMessage() {
 
 function popupMessage(message, modalClass = '') {
   const container = document.getElementById('modal-container');
+  if (!container) return;
   container.style.display = 'block';
-  //  A vnode carries the DOM node it owns, so the same one cannot be rendered
-  //  twice. popupMessage is handed a ready made vnode and mounts it, which
-  //  re-renders it on every global redraw, so it has to hand out a fresh copy
-  //  each time -- and a copy all the way down. Cloning only the root leaves the
-  //  children array shared, and `old === vnodes` makes mithril skip the whole
-  //  subtree: the modal content is then frozen at its first render.
-  const freshVnode = (vnode) => {
-    if (Array.isArray(vnode)) return vnode.map(freshVnode);
-    if (!vnode || typeof vnode !== 'object' || !vnode.tag) return vnode;
-    //  '<' is m.trust and '[' is m.fragment: neither is a selector m() knows how
-    //  to parse. Rebuilding them with m() would silently turn trusted html into
-    //  an empty div, so they go back through their own factory. '#' is a text
-    //  vnode, whose children is the string itself.
-    if (vnode.tag === '<') return m.trust(vnode.children);
-    if (vnode.tag === '#') return vnode.children;
-    if (vnode.tag === '[') return m.fragment(vnode.attrs, freshVnode(vnode.children));
-    return m(vnode.tag, vnode.attrs, freshVnode(vnode.children));
+
+  const renderContent = () => {
+    if (typeof message === 'function') {
+      const res = message();
+      if (res && typeof res.view === 'function') {
+        return m(message);
+      }
+      return res;
+    }
+    if (message && typeof message.view === 'function') {
+      return m(message);
+    }
+    return message;
   };
+
   const Popup = {
     view: () => m(`.modal-content${modalClass ? `.${modalClass}` : ''}`, [
       m(
@@ -117,20 +96,16 @@ function popupMessage(message, modalClass = '') {
         },
         m('i.fas.fa-times')
       ),
-      freshVnode(message),
+      renderContent(),
     ]),
   };
 
   m.mount(container, Popup);
 }
 
-const { CommentsSection, ThreadedComments } = require('comments');
-
 module.exports = {
   Sidebar,
   SidebarQuickView,
   popupMessage,
   closePopupMessage,
-  CommentsSection,
-  ThreadedComments,
 };
