@@ -632,14 +632,22 @@ function loadChatMessages() {
 }
 
 function sendDistantChatMessage() {
-  if (!State.chatInputMsg.trim() || !State.chatPid) return;
+  if (!State.chatInputMsg.trim() || !State.chatPid || !State.selectedId) return;
 
-  const session = State.selectedId ? getDistantChatSession(State.selectedId) : null;
+  // Capture the recipient and sender before the request can outlive this view.
+  const recipientId = State.selectedId;
+  const ownId = State.selectedOwnGxsIdForChat;
+  const session = getDistantChatSession(recipientId);
+  const chatPid = State.chatPid;
+  const isCurrentChat = () => State.selectedId === recipientId
+    && State.selectedOwnGxsIdForChat === ownId
+    && State.chatPid === chatPid
+    && State.activeDistantChats[recipientId] === session;
   const cid = {
     broadcast_status_peer_id: '00000000000000000000000000000000',
     type: 2, // TYPE_PRIVATE_DISTANT
     peer_id: '00000000000000000000000000000000',
-    distant_chat_id: State.chatPid,
+    distant_chat_id: chatPid,
     lobby_id: { xstr64: '0' },
   };
 
@@ -659,22 +667,16 @@ function sendDistantChatMessage() {
           msg: text,
           sendTime: Math.floor(Date.now() / 1000),
           incoming: false,
-          lobby_peer_gxs_id: State.selectedOwnGxsIdForChat,
+          lobby_peer_gxs_id: ownId,
         };
-        if (session) {
-          addSessionMessages(session, [echoMsg]);
-          if (session.pid === State.chatPid) State.chatMessages = session.messages;
-        } else {
-          State.chatMessages.push(echoMsg);
-        }
-        if (State.selectedId) {
-          State.chatHistoryMap[State.selectedId] = {
-            lastMsg: text,
-            lastTime: Math.floor(Date.now() / 1000),
-          };
-        }
+        addSessionMessages(session, [echoMsg]);
+        if (isCurrentChat()) State.chatMessages = session.messages;
+        State.chatHistoryMap[recipientId] = {
+          lastMsg: text,
+          lastTime: echoMsg.sendTime,
+        };
         m.redraw();
-        scrollChatToBottom();
+        if (isCurrentChat()) scrollChatToBottom();
       } else {
         console.error('[RS] Failed to send distant chat message:', data);
         //  No size limit is involved: getMaxMessageSecuritySize() answers 0,
@@ -682,7 +684,9 @@ function sendDistantChatMessage() {
         //  than 15000 characters and reassembles it on the other side. Blaming
         //  the payload was a guess, and a wrong one.
         alert('Failed to send the message. The tunnel may have closed -- check the connection state above.');
-        setChatDraft(text);
+        // Restore only the saved conversation's draft, preserving newer typing.
+        if (!session.inputMsg) session.inputMsg = text;
+        if (isCurrentChat() && !State.chatInputMsg) State.chatInputMsg = session.inputMsg;
         m.redraw();
       }
     }
