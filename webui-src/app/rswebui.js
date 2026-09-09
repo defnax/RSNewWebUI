@@ -68,6 +68,7 @@ const RsEventsType = {
 
 const API_URL = 'http://127.0.0.1:9092';
 const loginKey = {
+  generation: 0,
   username: sessionStorage.getItem('rs_username') || '',
   passwd: sessionStorage.getItem('rs_passwd') || '',
   isVerified: sessionStorage.getItem('rs_isVerified') === 'true',
@@ -76,6 +77,8 @@ const loginKey = {
 
 // Make this as object property?
 function setKeys(username, password, url = API_URL, verified = true) {
+  if (loginKey.username !== username || loginKey.passwd !== password
+    || loginKey.url !== url || loginKey.isVerified !== verified) loginKey.generation += 1;
   loginKey.username = username;
   loginKey.passwd = password;
   loginKey.url = url;

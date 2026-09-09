@@ -50,8 +50,34 @@ async function loadOnlineIds() {
   return new Set(ids);
 }
 
+let cacheLogin = null;
+let cachedDetails = {};
+
+function currentCacheLogin() {
+  const login = rs.loginKey || {};
+  return JSON.stringify([login.url, login.username, login.isVerified, login.generation]);
+}
+
+function ensureCacheLogin() {
+  const key = currentCacheLogin();
+  if (cacheLogin !== key) {
+    cacheLogin = key;
+    cachedDetails = {};
+    refreshInFlight = null;
+    refreshedAt = 0;
+  }
+  return key;
+}
+
 const Data = {
-  gpgDetails: {},
+  get gpgDetails() {
+    ensureCacheLogin();
+    return cachedDetails;
+  },
+  set gpgDetails(details) {
+    ensureCacheLogin();
+    cachedDetails = details;
+  },
   runQueued,
 };
 
@@ -171,19 +197,21 @@ Data.getStatusPresentation = function (statusValue, isOnline = false) {
 //  friend. Otherwise a fresh enough result is only touched up with the online
 //  list, one request, and concurrent callers share the sweep in flight.
 Data.refreshGpgDetails = function (options = {}) {
+  const login = ensureCacheLogin();
   const force = Boolean(options && options.force);
   if (refreshInFlight) return refreshInFlight;
   if (!force && refreshedAt && Date.now() - refreshedAt < GPG_DETAILS_TTL_MS) {
-    return refreshOnlineFlags();
+    return refreshOnlineFlags(login);
   }
-  refreshInFlight = sweepGpgDetails()
-    .then(() => { refreshedAt = Date.now(); })
-    .finally(() => { refreshInFlight = null; });
+  refreshInFlight = sweepGpgDetails(login)
+    .then(() => { if (currentCacheLogin() === login) refreshedAt = Date.now(); })
+    .finally(() => { if (currentCacheLogin() === login) refreshInFlight = null; });
   return refreshInFlight;
 };
 
-async function refreshOnlineFlags() {
+async function refreshOnlineFlags(login) {
   const online = await loadOnlineIds();
+  if (currentCacheLogin() !== login) return;
   Object.values(Data.gpgDetails || {}).forEach((friend) => {
     let anyOnline = false;
     (friend.locations || []).forEach((loc) => {
@@ -194,10 +222,12 @@ async function refreshOnlineFlags() {
   });
 }
 
-async function sweepGpgDetails() {
+async function sweepGpgDetails(login) {
   const details = {};
   const sslIds = await refreshIds();
+  if (currentCacheLogin() !== login) return;
   const online = await loadOnlineIds();
+  if (currentCacheLogin() !== login) return;
 
   //  A first load shows the list as it fills rather than nothing for the
   //  whole sweep; a refresh keeps the old list on screen until it is done.
@@ -256,11 +286,12 @@ async function sweepGpgDetails() {
   //  Status string and status value only mean something for a peer that is
   //  connected: two requests per online peer instead of two per location.
   const tasks = sslIds.map((sslId) => async () => {
+    if (currentCacheLogin() !== login) return;
     let data = null;
     await rs.rsJsonApiRequest('/rsPeers/getPeerDetails', { sslId }, (res) => {
       if (res && res.det) data = res.det;
     });
-    if (!data) return;
+    if (!data || currentCacheLogin() !== login) return;
 
     const isOnline = online.has(sslId);
     let customState = '';
@@ -270,6 +301,7 @@ async function sweepGpgDetails() {
       await rs.rsJsonApiRequest('/rsChats/getCustomStateString', { peer_id: sslId }, (statusData) => {
         if (statusData && statusData.retval) customState = statusData.retval;
       });
+      if (currentCacheLogin() !== login) return;
       await rs.rsJsonApiRequest('/rsStatus/getStatus', { id: sslId }, (statusData) => {
         if (statusData && statusData.retval && statusData.statusInfo) {
           statusValue = normalizeStatusValue(statusData.statusInfo.status, statusValue);
@@ -277,9 +309,11 @@ async function sweepGpgDetails() {
         }
       });
     }
+    if (currentCacheLogin() !== login) return;
     addLocation(data, isOnline, customState, statusValue, statusTimestamp);
   });
   await runQueued(tasks, SWEEP_CONCURRENCY);
+  if (currentCacheLogin() !== login) return;
 
   const remembered = loadPendingFriends();
   let rememberedChanged = false;
