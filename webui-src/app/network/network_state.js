@@ -370,34 +370,41 @@ function loadAllDirectChatHistory() {
 function sendDirectChatMessage() {
   if (!State.chatInputMsg.trim() || !State.currentChatPeerId) return;
 
+  // The selected conversation may change before the send completes.
+  const peerId = State.currentChatPeerId;
+  const friendGpgId = State.selectedFriendGpgId;
   const msg = State.chatInputMsg;
   State.chatInputMsg = '';
 
   rs.rsJsonApiRequest(
     '/rsChats/sendChat',
     {
-      id: { type: 1, peer_id: State.currentChatPeerId },
+      id: { type: 1, peer_id: peerId },
       msg,
     },
     (data, success) => {
       if (success) {
         const nowSec = Math.floor(Date.now() / 1000);
-        State.chatMessages.push({
-          chat_id: { type: 1, peer_id: State.currentChatPeerId },
-          msg,
-          sendTime: nowSec,
-          incoming: false,
-          own: true,
-        });
+        const isCurrentChat = State.currentChatPeerId === peerId
+          && State.selectedFriendGpgId === friendGpgId;
+        if (isCurrentChat) {
+          State.chatMessages.push({
+            chat_id: { type: 1, peer_id: peerId },
+            msg,
+            sendTime: nowSec,
+            incoming: false,
+            own: true,
+          });
+          scrollChatToBottom();
+        }
 
-        if (State.selectedFriendGpgId) {
-          State.chatHistoryMap[State.selectedFriendGpgId] = {
+        if (friendGpgId) {
+          State.chatHistoryMap[friendGpgId] = {
             lastMsg: msg,
             lastTime: nowSec,
           };
         }
         m.redraw();
-        scrollChatToBottom();
       } else {
         console.error('[RS] Failed to send direct chat message');
       }
