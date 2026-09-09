@@ -334,12 +334,12 @@
   }
 
   .sidebar-drawer__backdrop {
-    display: none !important;
+    display: block !important;
     position: fixed;
     inset: 0;
     background: rgba(15, 23, 42, .35);
-    /* The drawer itself owns navigation input; this layer is visual only. */
-    pointer-events: none;
+    /* Rendered only while open; tapping outside closes the drawer. */
+    pointer-events: auto;
     z-index: 1001;
   }
 }
