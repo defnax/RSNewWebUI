@@ -1123,6 +1123,7 @@ const ChatLobbyModel = {
     this.lastLobbyId = currentlobbyid;
     ChatRoomsModel.unreadCount[currentlobbyid] = 0;
     ChatHubState.showParticipants = false;
+    ChatHubState.attachedImage = null;
 
     const finishLoad = (detail) => {
       this.setupAction = this.setIdentity;
@@ -1263,6 +1264,7 @@ const ChatHubState = {
   attachBrowseHint: false,
   isHashing: false,
   hashingError: '',
+  attachedImage: null,
   showEmojiPicker: false,
   emojiSearch: '',
   emojiCategory: 'Smileys',
@@ -1326,6 +1328,7 @@ module.exports = {
   ChatHubState,
   receiveLobbyChatMessage,
   autoResizeTextarea,
+  openChatImageViewer,
 };
 
 function autoResizeTextarea(el) {

@@ -8,7 +8,7 @@ const {
   sendDirectChatMessage,
   loadAllDirectChatHistory,
 } = require('network/network_state');
-const { renderChatMessage, autoResizeTextarea } = require('chat/chat_state');
+const { renderChatMessage, autoResizeTextarea, openChatImageViewer } = require('chat/chat_state');
 const chatEmoji = require('chat/chat_emoji');
 const HistoryBrowserModal = require('people/people_history');
 
@@ -35,16 +35,16 @@ function formatDirectChatImage(file, callback) {
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, width, height);
         const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-        callback(`<img src="${dataUrl}" />`);
+        callback(`<img src="${dataUrl}" />`, dataUrl);
       } else {
-        callback(`<img src="${evt.target.result}" />`);
+        callback(`<img src="${evt.target.result}" />`, evt.target.result);
       }
     };
     img.onerror = () => {
       if (evt.target.result) {
-        callback(`<img src="${evt.target.result}" />`);
+        callback(`<img src="${evt.target.result}" />`, evt.target.result);
       } else {
-        callback(null);
+        callback(null, null);
       }
     };
     img.src = evt.target.result;
@@ -218,6 +218,28 @@ const ChatTab = () => {
           name: friend.name,
           ownName: State.ownProfile.name || 'You',
         }),
+        State.attachedImage && m('.chat-attachment-preview', [
+          m('.chat-attachment-preview__item', [
+            m('img.chat-attachment-preview__thumb', {
+              src: State.attachedImage.dataUrl,
+              alt: 'Preview',
+              title: 'Click to view full image',
+              onclick: () => openChatImageViewer(State.attachedImage.dataUrl),
+            }),
+            m('button.chat-attachment-preview__remove', {
+              type: 'button',
+              title: 'Remove image',
+              onclick: () => {
+                State.attachedImage = null;
+              },
+            }, m('i.fas.fa-times')),
+          ]),
+          m('.chat-attachment-preview__info', [
+            m('span.chat-attachment-preview__name', State.attachedImage.name || 'Image attached'),
+            m('span.chat-attachment-preview__hint', 'Will be sent with your message'),
+          ]),
+        ]),
+
         m('.chat-input-area', { style: 'display: flex; align-items: flex-end; gap: 0.5rem; padding: 0.75rem; background: #ffffff; border-top: 1px solid #cbd5e1;' }, [
           m('button.chat-hub-action-btn.desktop-chat-attachment', {
             title: 'Attach file link',
@@ -258,9 +280,9 @@ const ChatTab = () => {
                   onchange: (e) => {
                     if (!e.target.files || !e.target.files[0]) return;
                     const file = e.target.files[0];
-                    formatDirectChatImage(file, (imgTag) => {
-                      if (imgTag) {
-                        State.chatInputMsg = (State.chatInputMsg || '') + imgTag;
+                    formatDirectChatImage(file, (imgTag, dataUrl) => {
+                      if (imgTag && dataUrl) {
+                        State.attachedImage = { imgTag, dataUrl, name: file.name || 'Image' };
                         m.redraw();
                       }
                     });
@@ -299,9 +321,9 @@ const ChatTab = () => {
               onchange: (e) => {
                 if (!e.target.files || !e.target.files[0]) return;
                 const file = e.target.files[0];
-                formatDirectChatImage(file, (imgTag) => {
-                  if (imgTag) {
-                    State.chatInputMsg = (State.chatInputMsg || '') + imgTag;
+                formatDirectChatImage(file, (imgTag, dataUrl) => {
+                  if (imgTag && dataUrl) {
+                    State.attachedImage = { imgTag, dataUrl, name: file.name || 'Image' };
                     m.redraw();
                   }
                 });
@@ -311,7 +333,7 @@ const ChatTab = () => {
           ]),
 
           m('textarea.chat-textarea', {
-            placeholder: 'Type a message here...',
+            placeholder: State.attachedImage ? 'Add a caption... (optional)' : 'Type a message here...',
             value: State.chatInputMsg,
             rows: 1,
             style: 'flex: 1; resize: none; border: 1px solid #cbd5e1; border-radius: 0.625rem; padding: 0.55rem 0.75rem; font-family: inherit; font-size: 0.9rem; line-height: 1.45; outline: none; min-height: 40px; max-height: 160px; height: 40px; box-sizing: border-box; overflow-y: hidden;',
@@ -328,9 +350,9 @@ const ChatTab = () => {
                 if (items[i].type.indexOf('image') !== -1) {
                   e.preventDefault();
                   const blob = items[i].getAsFile();
-                  formatDirectChatImage(blob, (imgTag) => {
-                    if (imgTag) {
-                      State.chatInputMsg = (State.chatInputMsg || '') + imgTag;
+                  formatDirectChatImage(blob, (imgTag, dataUrl) => {
+                    if (imgTag && dataUrl) {
+                      State.attachedImage = { imgTag, dataUrl, name: 'Pasted image' };
                       m.redraw();
                     }
                   });

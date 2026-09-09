@@ -20,6 +20,7 @@ const State = {
   chatPid: null,
   chatMessages: [],
   chatInputMsg: '',
+  attachedImage: null,
   distantChatStatus: null,
   statusPollInterval: null,
   chatDisconnected: false,
@@ -48,6 +49,7 @@ function getDistantChatSession(gxsId) {
       messages: [],
       msgKeys: new Set(),
       inputMsg: '',
+      attachedImage: null,
       disconnected: false,
     };
   }
@@ -632,7 +634,13 @@ function loadChatMessages() {
 }
 
 function sendDistantChatMessage() {
-  if (!State.chatInputMsg.trim() || !State.chatPid || !State.selectedId) return;
+  const text = (State.chatInputMsg || '').trim();
+  const attached = State.attachedImage;
+  if ((!text && !attached) || !State.chatPid || !State.selectedId) return;
+
+  const fullMsg = attached
+    ? (text ? `${text}\n${attached.imgTag}` : attached.imgTag)
+    : text;
 
   // Capture the recipient and sender before the request can outlive this view.
   const recipientId = State.selectedId;
@@ -651,20 +659,21 @@ function sendDistantChatMessage() {
     lobby_id: { xstr64: '0' },
   };
 
-  const text = State.chatInputMsg;
   setChatDraft('');
+  State.attachedImage = null;
+  if (session) session.attachedImage = null;
 
   rs.rsJsonApiRequest(
     '/rsChats/sendChat',
     {
       id: cid,
-      msg: text,
+      msg: fullMsg,
     },
     (data, success) => {
       if (success) {
         const echoMsg = {
           chat_id: cid,
-          msg: text,
+          msg: fullMsg,
           sendTime: Math.floor(Date.now() / 1000),
           incoming: false,
           lobby_peer_gxs_id: ownId,
@@ -672,7 +681,7 @@ function sendDistantChatMessage() {
         addSessionMessages(session, [echoMsg]);
         if (isCurrentChat()) State.chatMessages = session.messages;
         State.chatHistoryMap[recipientId] = {
-          lastMsg: text,
+          lastMsg: fullMsg,
           lastTime: echoMsg.sendTime,
         };
         m.redraw();
@@ -766,6 +775,7 @@ function selectChatContact(gxsId) {
   State.chatEndedByPoll = false;
   State.statusPollFailures = 0;
   State.chatInputMsg = session ? (session.inputMsg || '') : '';
+  State.attachedImage = session ? (session.attachedImage || null) : null;
 }
 
 function isDistantChatActive(gxsId) {

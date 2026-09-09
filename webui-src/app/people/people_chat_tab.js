@@ -11,9 +11,10 @@ const {
   loadOlderChatHistory,
   setChatDraft,
   switchChatIdentity,
+  getDistantChatSession,
 } = require('people/people_state');
 const { startAttachHash, stopAttachHash } = require('people/people_attach');
-const { renderChatMessage, autoResizeTextarea } = require('chat/chat_state');
+const { renderChatMessage, autoResizeTextarea, openChatImageViewer } = require('chat/chat_state');
 const chatEmoji = require('chat/chat_emoji');
 const peopleUtil = require('people/people_util');
 const HistoryBrowserModal = require('people/people_history');
@@ -58,13 +59,13 @@ function formatChatImage(file, callback) {
       }
 
       if (dataUrl.length <= MAX_IMAGE_CHARS) {
-        callback(`<img src="${dataUrl}" />`);
+        callback(`<img src="${dataUrl}" />`, dataUrl);
       } else {
         alert('That picture stays too heavy once compressed to be worth sending over a distant chat tunnel.');
-        callback(null);
+        callback(null, null);
       }
     };
-    img.onerror = () => callback(null);
+    img.onerror = () => callback(null, null);
     img.src = evt.target.result;
   };
   reader.readAsDataURL(file);
@@ -90,9 +91,11 @@ const ChatTab = () => {
 
   function attachImage(file) {
     if (!file) return;
-    formatChatImage(file, (imgTag) => {
-      if (imgTag) {
-        setChatDraft((State.chatInputMsg || '') + imgTag);
+    formatChatImage(file, (imgTag, dataUrl) => {
+      if (imgTag && dataUrl) {
+        State.attachedImage = { imgTag, dataUrl, name: file.name || 'Image' };
+        const session = getDistantChatSession(State.selectedId);
+        if (session) session.attachedImage = State.attachedImage;
         m.redraw();
       }
     });
@@ -295,6 +298,30 @@ const ChatTab = () => {
               }, 'Dismiss'),
             ]),
 
+        State.attachedImage && m('.chat-attachment-preview', [
+          m('.chat-attachment-preview__item', [
+            m('img.chat-attachment-preview__thumb', {
+              src: State.attachedImage.dataUrl,
+              alt: 'Preview',
+              title: 'Click to view full image',
+              onclick: () => openChatImageViewer(State.attachedImage.dataUrl),
+            }),
+            m('button.chat-attachment-preview__remove', {
+              type: 'button',
+              title: 'Remove image',
+              onclick: () => {
+                State.attachedImage = null;
+                const session = getDistantChatSession(State.selectedId);
+                if (session) session.attachedImage = null;
+              },
+            }, m('i.fas.fa-times')),
+          ]),
+          m('.chat-attachment-preview__info', [
+            m('span.chat-attachment-preview__name', State.attachedImage.name || 'Image attached'),
+            m('span.chat-attachment-preview__hint', 'Will be sent with your message'),
+          ]),
+        ]),
+
         m('.chat-input-area', { style: 'display: flex; align-items: flex-end; gap: 0.5rem; padding: 0.75rem; background: #ffffff; border-top: 1px solid #cbd5e1;' }, [
           m('button.chat-hub-action-btn.desktop-chat-attachment', {
             disabled: !canTalk,
@@ -374,7 +401,9 @@ const ChatTab = () => {
           ]),
 
           m('textarea.chat-textarea', {
-            placeholder: canTalk ? 'Type a message here...' : 'Waiting for tunnel to be secured...',
+            placeholder: !canTalk
+              ? 'Waiting for tunnel to be secured...'
+              : (State.attachedImage ? 'Add a caption... (optional)' : 'Type a message here...'),
             disabled: !canTalk,
             value: State.chatInputMsg,
             rows: 1,
@@ -393,9 +422,11 @@ const ChatTab = () => {
                 if (items[i].type.indexOf('image') !== -1) {
                   e.preventDefault();
                   const blob = items[i].getAsFile();
-                  formatChatImage(blob, (imgTag) => {
-                    if (imgTag) {
-                      setChatDraft((State.chatInputMsg || '') + imgTag);
+                  formatChatImage(blob, (imgTag, dataUrl) => {
+                    if (imgTag && dataUrl) {
+                      State.attachedImage = { imgTag, dataUrl, name: 'Pasted image' };
+                      const session = getDistantChatSession(State.selectedId);
+                      if (session) session.attachedImage = State.attachedImage;
                       m.redraw();
                     }
                   });

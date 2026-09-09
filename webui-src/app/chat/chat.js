@@ -15,6 +15,7 @@ const {
   ChatLobbyModel,
   ChatHubState,
   autoResizeTextarea,
+  openChatImageViewer,
 } = chatState;
 
 chatEmoji.setDependencies({ ChatHubState });
@@ -53,14 +54,14 @@ function formatChatImage(file, callback) {
       }
 
       if (dataUrl.length <= 32000) {
-        callback(`<img src="${dataUrl}" />`);
+        callback(`<img src="${dataUrl}" />`, dataUrl);
       } else {
         alert('Image file is too large to send over RetroShare chat packet size limit.');
-        callback(null);
+        callback(null, null);
       }
     };
     img.onerror = () => {
-      callback(null);
+      callback(null, null);
     };
     img.src = evt.target.result;
   };
@@ -436,6 +437,27 @@ const ChatConversationView = () => {
             },
             ChatLobbyModel.messages
           ),
+          ChatHubState.attachedImage && m('.chat-attachment-preview', [
+            m('.chat-attachment-preview__item', [
+              m('img.chat-attachment-preview__thumb', {
+                src: ChatHubState.attachedImage.dataUrl,
+                alt: 'Preview',
+                title: 'Click to view full image',
+                onclick: () => openChatImageViewer(ChatHubState.attachedImage.dataUrl),
+              }),
+              m('button.chat-attachment-preview__remove', {
+                type: 'button',
+                title: 'Remove image',
+                onclick: () => {
+                  ChatHubState.attachedImage = null;
+                }
+              }, m('i.fas.fa-times')),
+            ]),
+            m('.chat-attachment-preview__info', [
+              m('span.chat-attachment-preview__name', ChatHubState.attachedImage.name || 'Image attached'),
+              m('span.chat-attachment-preview__hint', 'Will be sent with your message'),
+            ]),
+          ]),
           m(
             '.chat-hub-input-area',
             [
@@ -479,13 +501,9 @@ const ChatConversationView = () => {
                       onchange: (e) => {
                         if (!e.target.files || !e.target.files[0]) return;
                         const file = e.target.files[0];
-                        const textarea = e.target.closest('.chat-hub-input-area').querySelector('textarea');
-                        formatChatImage(file, (imgTag) => {
-                          if (imgTag && textarea) {
-                            const start = textarea.selectionStart || 0;
-                            const end = textarea.selectionEnd || 0;
-                            const val = textarea.value;
-                            textarea.value = val.substring(0, start) + imgTag + val.substring(end);
+                        formatChatImage(file, (imgTag, dataUrl) => {
+                          if (imgTag && dataUrl) {
+                            ChatHubState.attachedImage = { imgTag, dataUrl, name: file.name || 'Image' };
                             m.redraw();
                           }
                         });
@@ -523,14 +541,9 @@ const ChatConversationView = () => {
                   onchange: (e) => {
                     if (!e.target.files || !e.target.files[0]) return;
                     const file = e.target.files[0];
-                    const textarea = e.target.closest('.chat-hub-input-area').querySelector('textarea');
-                    formatChatImage(file, (imgTag) => {
-                      if (imgTag && textarea) {
-                        const start = textarea.selectionStart || 0;
-                        const end = textarea.selectionEnd || 0;
-                        const val = textarea.value;
-                        textarea.value = val.substring(0, start) + imgTag + val.substring(end);
-                        autoResizeTextarea(textarea);
+                    formatChatImage(file, (imgTag, dataUrl) => {
+                      if (imgTag && dataUrl) {
+                        ChatHubState.attachedImage = { imgTag, dataUrl, name: file.name || 'Image' };
                         m.redraw();
                       }
                     });
@@ -539,7 +552,7 @@ const ChatConversationView = () => {
                 })
               ]),
               m('textarea.chat-hub-textarea', {
-                placeholder: 'Type a message...',
+                placeholder: ChatHubState.attachedImage ? 'Add a caption... (optional)' : 'Type a message...',
                 disabled: !canTalk,
                 enterkeyhint: 'send',
                 rows: 1,
@@ -554,14 +567,9 @@ const ChatConversationView = () => {
                     if (items[i].type.indexOf('image') !== -1) {
                       e.preventDefault();
                       const blob = items[i].getAsFile();
-                      const textarea = e.target;
-                      formatChatImage(blob, (imgTag) => {
-                        if (imgTag && textarea) {
-                          const start = textarea.selectionStart || 0;
-                          const end = textarea.selectionEnd || 0;
-                          const val = textarea.value;
-                          textarea.value = val.substring(0, start) + imgTag + val.substring(end);
-                          autoResizeTextarea(textarea);
+                      formatChatImage(blob, (imgTag, dataUrl) => {
+                        if (imgTag && dataUrl) {
+                          ChatHubState.attachedImage = { imgTag, dataUrl, name: 'Pasted image' };
                           m.redraw();
                         }
                       });
@@ -574,13 +582,22 @@ const ChatConversationView = () => {
                     if (!e.shiftKey && !e.ctrlKey && !e.metaKey && !e.altKey) {
                       e.preventDefault();
                       if (!canTalk) return false;
-                      const msg = e.target.value;
-                      if (msg.trim() === '') return false;
-                      e.target.value = ' sending ... ';
-                      ChatLobbyModel.sendMessage(msg, () => {
-                        e.target.value = '';
-                        autoResizeTextarea(e.target);
+                      const textarea = e.target;
+                      const msg = (textarea.value || '').trim();
+                      const attached = ChatHubState.attachedImage;
+                      if (!msg && !attached) return false;
+
+                      const fullMsg = attached
+                        ? (msg ? `${msg}\n${attached.imgTag}` : attached.imgTag)
+                        : msg;
+
+                      textarea.value = ' sending ... ';
+                      ChatHubState.attachedImage = null;
+                      ChatLobbyModel.sendMessage(fullMsg, () => {
+                        textarea.value = '';
+                        autoResizeTextarea(textarea);
                         scrollChatToBottom();
+                        m.redraw();
                       });
                       return false;
                     }
@@ -606,13 +623,23 @@ const ChatConversationView = () => {
                   onclick: (e) => {
                     if (!canTalk) return;
                     const textarea = e.target.closest('.chat-hub-input-area').querySelector('textarea');
-                    const msg = textarea.value;
-                    if (msg.trim() === '') return;
-                    textarea.value = ' sending ... ';
-                    ChatLobbyModel.sendMessage(msg, () => {
-                      textarea.value = '';
-                      autoResizeTextarea(textarea);
+                    const msg = (textarea ? textarea.value : '').trim();
+                    const attached = ChatHubState.attachedImage;
+                    if (!msg && !attached) return;
+
+                    const fullMsg = attached
+                      ? (msg ? `${msg}\n${attached.imgTag}` : attached.imgTag)
+                      : msg;
+
+                    if (textarea) textarea.value = ' sending ... ';
+                    ChatHubState.attachedImage = null;
+                    ChatLobbyModel.sendMessage(fullMsg, () => {
+                      if (textarea) {
+                        textarea.value = '';
+                        autoResizeTextarea(textarea);
+                      }
                       scrollChatToBottom();
+                      m.redraw();
                     });
                   },
                 },

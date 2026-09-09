@@ -30,6 +30,7 @@ const State = {
   currentChatPeerId: null,
   chatMessages: [],
   chatInputMsg: '',
+  attachedImage: null,
   showMailCompose: false,
   showAttachModal: false,
   attachPath: '',
@@ -187,6 +188,7 @@ function loadGxsIdentities() {
 function startDirectChat(sslId) {
   State.currentChatPeerId = sslId;
   State.chatMessages = [];
+  State.attachedImage = null;
   const normalizedSslId = String(sslId || '').toLowerCase();
   const matchingFriend = Object.entries(Data.gpgDetails || {}).find(([, friend]) =>
     ((friend && friend.locations) || []).some(
@@ -368,13 +370,20 @@ function loadAllDirectChatHistory() {
 }
 
 function sendDirectChatMessage() {
-  if (!State.chatInputMsg.trim() || !State.currentChatPeerId) return;
+  const text = (State.chatInputMsg || '').trim();
+  const attached = State.attachedImage;
+  if ((!text && !attached) || !State.currentChatPeerId) return;
+
+  const fullMsg = attached
+    ? (text ? `${text}\n${attached.imgTag}` : attached.imgTag)
+    : text;
 
   // The selected conversation may change before the send completes.
   const peerId = State.currentChatPeerId;
   const friendGpgId = State.selectedFriendGpgId;
-  const msg = State.chatInputMsg;
+  const msg = fullMsg;
   State.chatInputMsg = '';
+  State.attachedImage = null;
 
   rs.rsJsonApiRequest(
     '/rsChats/sendChat',
