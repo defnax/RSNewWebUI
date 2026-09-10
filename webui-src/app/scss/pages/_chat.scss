@@ -2145,7 +2145,11 @@ label.mobile-chat-attachment__option:hover {
   flex-shrink: 0;
 }
 
-.emoji-search-input {
+/* input.--, not .-- alone: the field is an input[type=text], and the global
+ * input[type='text'] of base/_base.scss (0,1,1) out-ranks a bare class
+ * (0,1,0) -- border, radius, padding and font-size all lost to it. The old
+ * nested picker rule used to win on nesting. */
+input.emoji-search-input {
   flex: 1;
   border: 1px solid #e2e8f0;
   border-radius: 0.375rem;
@@ -2156,9 +2160,11 @@ label.mobile-chat-attachment__option:hover {
   transition: border-color 0.15s;
 }
 
-.emoji-search-input:focus {
+input.emoji-search-input:focus {
   border-color: #3ba4d7;
   background-color: #fff;
+  /* base's input:focus paints an inset shadow; the picker field stays flat */
+  box-shadow: none;
 }
 
 .emoji-search-clear {
