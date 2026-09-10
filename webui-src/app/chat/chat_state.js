@@ -1200,6 +1200,11 @@ const ChatLobbyModel = {
   },
   sendMessage(msg, onsuccess) {
     const cid = this.chatId();
+    //  Captured now: the answer can land after a room switch, and the echo,
+    //  its sender identity and the target list must be the room the message
+    //  was typed in -- addMessages() writes into the room on screen.
+    const askedLobbyId = this.lastLobbyId;
+    const senderGxsId = this.currentLobby ? this.currentLobby.gxs_id : '';
 
     rs.rsJsonApiRequest(
       '/rsChats/sendChat',
@@ -1209,11 +1214,18 @@ const ChatLobbyModel = {
       },
       (data, success) => {
         if (success) {
+          if (this.lastLobbyId !== askedLobbyId) {
+            //  Another room is open: its message array is not this echo's
+            //  home. The message itself was sent; the sender's own line will
+            //  come back through the history on the next visit.
+            if (onsuccess) onsuccess();
+            return;
+          }
           const echoMsg = {
             chat_id: cid,
             msg,
             sendTime: Math.floor(Date.now() / 1000),
-            lobby_peer_gxs_id: this.currentLobby.gxs_id,
+            lobby_peer_gxs_id: senderGxsId,
           };
           this.addMessages([echoMsg], true);
           if (onsuccess) onsuccess();

@@ -522,6 +522,24 @@ function PostView() {
           const meta = (comment && comment.mMeta) || {};
           return meta.mThreadId === msgId || (!meta.mThreadId && meta.mParentId === msgId);
         });
+        //  The endpoints reachable over the JSON API never fill a comment's
+        //  mUpVotes (only the unexposed getRelatedComments tallies), so the
+        //  counts rendered from them were 0 forever. The votes travel in
+        //  their own array here, one message per vote with mParentId naming
+        //  its target: count them ourselves, the way the channels page does.
+        const counts = {};
+        (res.body.votes || res.body.voteList || []).forEach((vote) => {
+          const parentId = vote && vote.mMeta && vote.mMeta.mParentId;
+          if (!parentId) return;
+          if (!counts[parentId]) counts[parentId] = { up: 0, down: 0 };
+          if (vote.mVoteType === util.GXS_VOTE_UP) counts[parentId].up += 1;
+          else if (vote.mVoteType === util.GXS_VOTE_DOWN) counts[parentId].down += 1;
+        });
+        comments.forEach((comment) => {
+          const tally = counts[(comment.mMeta && comment.mMeta.mMsgId) || ''];
+          comment.mUpVotes = tally ? tally.up : 0;
+          comment.mDownVotes = tally ? tally.down : 0;
+        });
       }
     } catch (e) {
       console.warn('PostView: failed to load comments', e);
@@ -619,7 +637,10 @@ function PostView() {
                 onclick: async () => {
                   postVoteSubmitting = true;
                   m.redraw();
-                  await util.voteForPost(forumId, msgId, util.GXS_VOTE_UP, voteIdentity);
+                  //  The bump is what the reader sees: the core only retallies
+                  //  the stored count on its ~15 s background pass.
+                  const voted = await util.voteForPost(forumId, msgId, util.GXS_VOTE_UP, voteIdentity);
+                  if (voted) p.mUpVotes = numberValue(p.mUpVotes !== undefined ? p.mUpVotes : meta.mUpVotes) + 1;
                   postVoteSubmitting = false;
                   m.redraw();
                 },
@@ -630,7 +651,8 @@ function PostView() {
                 onclick: async () => {
                   postVoteSubmitting = true;
                   m.redraw();
-                  await util.voteForPost(forumId, msgId, util.GXS_VOTE_DOWN, voteIdentity);
+                  const voted = await util.voteForPost(forumId, msgId, util.GXS_VOTE_DOWN, voteIdentity);
+                  if (voted) p.mDownVotes = numberValue(p.mDownVotes !== undefined ? p.mDownVotes : meta.mDownVotes) + 1;
                   postVoteSubmitting = false;
                   m.redraw();
                 },

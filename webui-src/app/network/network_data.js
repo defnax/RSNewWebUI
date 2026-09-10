@@ -16,6 +16,7 @@ async function refreshIds() {
 const SWEEP_CONCURRENCY = 3;
 const GPG_DETAILS_TTL_MS = 5 * 60 * 1000;
 let refreshInFlight = null;
+let rerunQueued = false;
 let refreshedAt = 0;
 
 function runQueued(tasks, concurrency = SWEEP_CONCURRENCY) {
@@ -65,6 +66,9 @@ function ensureCacheLogin() {
     cachedDetails = {};
     refreshInFlight = null;
     refreshedAt = 0;
+    //  A rerun queued under the previous login must not swallow the next
+    //  login's first force call.
+    rerunQueued = false;
   }
   return key;
 }
@@ -199,7 +203,25 @@ Data.getStatusPresentation = function (statusValue, isOnline = false) {
 Data.refreshGpgDetails = function (options = {}) {
   const login = ensureCacheLogin();
   const force = Boolean(options && options.force);
-  if (refreshInFlight) return refreshInFlight;
+  if (refreshInFlight) {
+    if (!force) return refreshInFlight;
+    //  force is called right after adding or removing a friend, and the
+    //  sweep in flight read its friend list BEFORE that change: joining it
+    //  answers with the world as it was -- the added friend missing, the
+    //  removed one back on screen. Chain ONE fresh sweep behind it; more
+    //  force calls while it waits share that rerun.
+    if (rerunQueued) return refreshInFlight;
+    rerunQueued = true;
+    const rerun = refreshInFlight.catch(() => {}).then(() => {
+      rerunQueued = false;
+      if (refreshInFlight === rerun) refreshInFlight = null;
+      if (currentCacheLogin() !== login) return undefined;
+      if (refreshInFlight) return refreshInFlight;
+      return Data.refreshGpgDetails({ force: true });
+    });
+    refreshInFlight = rerun;
+    return rerun;
+  }
   if (!force && refreshedAt && Date.now() - refreshedAt < GPG_DETAILS_TTL_MS) {
     return refreshOnlineFlags(login);
   }

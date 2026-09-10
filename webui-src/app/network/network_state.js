@@ -219,9 +219,16 @@ function isSystemMsg(msg) {
 }
 
 let historyPreloadInFlight = null;
+let historyPreloadLogin = null;
 
 function preloadNetworkChatHistory() {
-  if (historyPreloadInFlight) return historyPreloadInFlight;
+  //  The preload belongs to one login (rs.loginKey.generation bumps at every
+  //  credential change): the next login must not share the old in-flight
+  //  run -- which read the OLD friend list -- and the old run's answers must
+  //  not write previews under the new session.
+  const login = rs.loginKey.generation;
+  if (historyPreloadInFlight && historyPreloadLogin === login) return historyPreloadInFlight;
+  historyPreloadLogin = login;
   const gpgIds = Object.keys(Data.gpgDetails || {});
   const tasks = gpgIds.map((gpgId) => async () => {
     if (!gpgId || gpgId === '0000000000000000') return;
@@ -249,6 +256,9 @@ function preloadNetworkChatHistory() {
       (a, b) => (a.sendTime || a.recvTime || 0) - (b.sendTime || b.recvTime || 0)
     );
     if (userMsgs.length === 0) return;
+    //  An answer from the previous login's run must not write previews into
+    //  the next session.
+    if (rs.loginKey.generation !== login) return;
     const last = userMsgs[userMsgs.length - 1];
     State.chatHistoryMap[gpgId] = {
       lastMsg: last.message || last.msg || '',
@@ -257,7 +267,7 @@ function preloadNetworkChatHistory() {
     m.redraw();
   });
   historyPreloadInFlight = Data.runQueued(tasks)
-    .finally(() => { historyPreloadInFlight = null; });
+    .finally(() => { if (historyPreloadLogin === login) historyPreloadInFlight = null; });
   return historyPreloadInFlight;
 }
 

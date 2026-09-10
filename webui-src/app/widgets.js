@@ -71,18 +71,39 @@ function popupMessage(message, modalClass = '') {
   if (!container) return;
   container.style.display = 'block';
 
+  //  A vnode carries the DOM node it owns, so the same one cannot be
+  //  rendered twice. Most call sites hand popupMessage a ready-made vnode
+  //  (or an array of them); re-rendering it on every global redraw needs a
+  //  fresh copy each time -- and a copy all the way down, since mithril
+  //  skips a subtree whose children array is identical (old === vnodes) and
+  //  freezes it at its first render. Component call sites go through m()
+  //  and need no copying.
+  const freshVnode = (vnode) => {
+    if (Array.isArray(vnode)) return vnode.map(freshVnode);
+    if (!vnode || typeof vnode !== 'object' || !vnode.tag) return vnode;
+    //  '<' is m.trust and '[' is m.fragment: neither is a selector m() can
+    //  parse. Rebuilding them with m() would silently turn trusted html into
+    //  an empty div, so they go back through their own factory. '#' is a
+    //  text vnode, whose children is the string itself.
+    if (vnode.tag === '<') return m.trust(vnode.children);
+    if (vnode.tag === '#') return vnode.children;
+    if (vnode.tag === '[') return m.fragment(vnode.attrs, freshVnode(vnode.children));
+    if (typeof vnode.tag !== 'string') return m(vnode.tag, vnode.attrs, vnode.children);
+    return m(vnode.tag, vnode.attrs, freshVnode(vnode.children));
+  };
+
   const renderContent = () => {
     if (typeof message === 'function') {
       const res = message();
       if (res && typeof res.view === 'function') {
         return m(message);
       }
-      return res;
+      return freshVnode(res);
     }
     if (message && typeof message.view === 'function') {
       return m(message);
     }
-    return message;
+    return freshVnode(message);
   };
 
   const Popup = {
