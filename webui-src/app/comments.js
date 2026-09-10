@@ -3,8 +3,12 @@ const rs = require('rswebui');
 const peopleUtil = require('people/people_util');
 const chatEmoji = require('chat/chat_emoji');
 
-const VOTE_UP = 1;
-const VOTE_DOWN = 2;
+//  The core's contract (rsgxscommon.h RsGxsVoteType, same as the legacy
+//  GXS_VOTE_* constants used by boards_util/channels_util): DOWN = 1, UP = 2.
+//  These were inverted at first, and a GXS vote is a published message that
+//  cannot be retracted: every thumbs-up was recorded as a downvote.
+const VOTE_UP = 2;
+const VOTE_DOWN = 1;
 
 const CommentsSection = () => {
   let replyTo = null;
