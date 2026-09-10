@@ -1,6 +1,7 @@
 const m = require('mithril');
 const rs = require('rswebui');
 const NetworkData = require('network/network_data');
+const Bandwidth = require('statistics/bandwidth');
 
 const COLORS = ['#0788cb', '#10b981', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#ec4899', '#84cc16', '#64748b', '#f97316'];
 const SERVICE_NAMES = {
@@ -13,6 +14,7 @@ const SERVICE_NAMES = {
   0x0200: 'Network exchange', 0x0211: 'Identities', 0x0215: 'Forums',
   0x0216: 'Boards', 0x0217: 'Channels', 0x0218: 'Circles', 0x0219: 'Reputation',
   0x0220: 'GXS recognition', 0x0230: 'GXS mail', 0x0240: 'JSON API',
+  0x1011: 'RTT',
 };
 
 function idString(value) {
@@ -130,7 +132,10 @@ function TrafficPanel() {
     view(vnode) {
       const rows = vnode.attrs.rows;
       return m('section.traffic-panel', [
-        m('.traffic-panel__heading', [m('div', [m('h2', vnode.attrs.title), m('p', vnode.attrs.description)])]),
+        m('.traffic-panel__heading', [
+          m('i.fas.' + (vnode.attrs.icon || 'fa-chart-pie')),
+          m('div', [m('h3', vnode.attrs.title), m('p', vnode.attrs.description)]),
+        ]),
         rows.length
           ? [m(PieChart, { rows, label: `${vnode.attrs.title} traffic distribution` }),
             m('.traffic-table-wrap', m('table.traffic-table', [
@@ -146,8 +151,28 @@ function TrafficPanel() {
   };
 }
 
+// Navigation sections — Traffic and Bandwidth are implemented
+const NAV_SECTIONS = [
+  { id: 'traffic', label: 'Traffic', icon: 'fa-chart-pie', description: 'Live traffic distribution reported by RetroShare Core.' },
+  { id: 'bandwidth', label: 'Bandwidth', icon: 'fa-tachometer-alt', description: 'Real-time bandwidth rates and peer throughput.' },
+];
+
+function PlaceholderSection() {
+  return {
+    view(vnode) {
+      const section = vnode.attrs.section;
+      return m('.statistics-placeholder', [
+        m('i.fas.' + section.icon),
+        m('h3', section.label),
+        m('p', 'Coming soon — this section is not yet implemented.'),
+      ]);
+    },
+  };
+}
+
 module.exports = {
   oninit(vnode) {
+    vnode.state.activeSection = 'traffic';
     vnode.state.incoming = [];
     vnode.state.outgoing = [];
     vnode.state.error = '';
@@ -201,10 +226,23 @@ module.exports = {
     vnode.state.friendsRefreshedAt = 0;
     vnode.state.loading = false;
     vnode.state.load();
-    vnode.state.timer = setInterval(vnode.state.load, 5000);
+    vnode.state.timer = setInterval(() => {
+      if (vnode.state.activeSection === 'traffic') {
+        vnode.state.load();
+      }
+    }, 5000);
   },
   onremove(vnode) { clearInterval(vnode.state.timer); },
   view(vnode) {
+    const activeSection = NAV_SECTIONS.find((s) => s.id === vnode.state.activeSection) || NAV_SECTIONS[0];
+
+    const switchSection = (id) => {
+      vnode.state.activeSection = id;
+      if (id === 'traffic') {
+        vnode.state.load();
+      }
+    };
+
     const serviceLabel = (value) => {
       const id = Number(value) || 0;
       return SERVICE_NAMES[id] || `Service 0x${id.toString(16).padStart(4, '0')}`;
@@ -222,19 +260,88 @@ module.exports = {
       ? cumulativeRows(vnode.state.cumulativePeers, friendLabel)
       : aggregate(vnode.state.incoming, vnode.state.outgoing,
         (clue) => idString(clue.peer_id) || 'unknown', (_clue, id) => friendLabel(id));
-    return m('.statistics-page', [
-      m('.statistics-header', [
-        m('div', [m('h1', [m('i.fas.fa-chart-pie'), ' Traffic statistics']), m('p', 'Live traffic distribution reported by RetroShare Core.')]),
-        m('button[type=button]', { disabled: vnode.state.loading, onclick: vnode.state.load }, [m('i.fas.fa-sync-alt'), ' Refresh']),
+
+    // Refresh handler based on active section
+    const isBandwidth = activeSection.id === 'bandwidth';
+    const isLoading = isBandwidth ? Bandwidth.loading : vnode.state.loading;
+    const handleRefresh = () => {
+      if (isBandwidth) {
+        Bandwidth.load();
+      } else {
+        vnode.state.load();
+      }
+    };
+
+    // Build the content for the active section
+    let sectionContent;
+    if (activeSection.id === 'traffic') {
+      sectionContent = [
+        vnode.state.error && m('.statistics-error', [m('i.fas.fa-exclamation-triangle'), vnode.state.error]),
+        m('.statistics-grid', [
+          m(TrafficPanel, { title: 'By service', icon: 'fa-layer-group', description: 'Which RetroShare services use the most bandwidth.', column: 'Service', rows: serviceRows }),
+          m(TrafficPanel, { title: 'By friend', icon: 'fa-user-friends', description: 'Traffic exchanged with each friend location.', column: 'Friend', rows: friendRows }),
+        ]),
+        m('p.statistics-note', vnode.state.cumulativeServices
+          ? 'Cumulative values are retained by the Core and refresh every 5 seconds.'
+          : 'Values cover the current traffic window and refresh every 5 seconds.'),
+      ];
+    } else if (activeSection.id === 'bandwidth') {
+      sectionContent = m(Bandwidth);
+    } else {
+      sectionContent = m(PlaceholderSection, { section: activeSection });
+    }
+
+    return m('.statistics-container', [
+      // ── Left pane: header card + navigation ──
+      m('.statistics-left-pane', [
+        m('.statistics-header-card', [
+          m('.statistics-header-card__title', [
+            m('i.fas.fa-chart-pie'),
+            m('div', [m('h1', 'Statistics'), m('p', 'Traffic & routing stats')]),
+          ]),
+        ]),
+        m('nav.statistics-nav', NAV_SECTIONS.map((section) =>
+          m('button.statistics-nav-item[type=button]', {
+            class: activeSection.id === section.id ? 'active' : '',
+            onclick: () => switchSection(section.id),
+            title: section.description,
+          }, [m('i.fas.' + section.icon), m('span', section.label)])
+        )),
       ]),
-      vnode.state.error && m('.statistics-error', [m('i.fas.fa-exclamation-triangle'), vnode.state.error]),
-      m('.statistics-grid', [
-        m(TrafficPanel, { title: 'By service', description: 'Which RetroShare services use the most bandwidth.', column: 'Service', rows: serviceRows }),
-        m(TrafficPanel, { title: 'By friend', description: 'Traffic exchanged with each friend location.', column: 'Friend', rows: friendRows }),
+
+      // ── Mobile tab bar (visible only on small screens) ──
+      m('.statistics-mobile-tabs', [
+        m('.statistics-mobile-tabs__list', NAV_SECTIONS.map((section) =>
+          m('button.statistics-mobile-tab[type=button]', {
+            class: activeSection.id === section.id ? 'active' : '',
+            onclick: () => switchSection(section.id),
+          }, [m('i.fas.' + section.icon), m('span', section.label)])
+        )),
+        m('button.statistics-mobile-refresh[type=button]', {
+          disabled: isLoading,
+          onclick: handleRefresh,
+          title: 'Refresh',
+        }, m('i.fas.fa-sync-alt')),
       ]),
-      m('p.statistics-note', vnode.state.cumulativeServices
-        ? 'Cumulative values are retained by the Core and refresh every 5 seconds.'
-        : 'Values cover the current traffic window and refresh every 5 seconds.'),
+
+      // ── Right pane: section content ──
+      m('.statistics-right-pane', [
+        m('.statistics-content-header', [
+          m('.statistics-content-header__title', [
+            m('h2', activeSection.label),
+            m('p', activeSection.description),
+          ]),
+          m('button.statistics-refresh-btn[type=button]', {
+            disabled: isLoading,
+            onclick: handleRefresh,
+            title: 'Refresh statistics',
+          }, [
+            m('i.fas.fa-sync-alt'),
+            m('span.btn-text', 'Refresh'),
+          ]),
+        ]),
+        sectionContent,
+      ]),
     ]);
   },
 };
