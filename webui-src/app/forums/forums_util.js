@@ -22,6 +22,7 @@ const Data = {
 //  loadPostContent(). Module level rather than in Data: it is plumbing, not
 //  forum content.
 const bodyRequestsInFlight = new Set();
+const FAILED_BODY_RETRY_MS = 5 * 60 * 1000;
 
 function getTimestampValue(ts) {
   if (!ts) return 0;
@@ -180,15 +181,22 @@ async function loadPostContent(forumId, msgId) {
       if (Data.Threads[forumId] && Data.Threads[forumId][msgId]) {
         Data.Threads[forumId][msgId].thread.mMsg = body;
       }
+      //  The cached body is what stops the view from asking again, so the
+      //  key is released only once it is in place.
+      bodyRequestsInFlight.delete(inFlightKey);
       m.redraw();
       return body;
     }
   } catch (e) {
     console.error('[RS] Error loading post content:', forumId, msgId, e);
-  } finally {
-    // Only suppress concurrent requests; completed failures must allow retries.
-    bodyRequestsInFlight.delete(inFlightKey);
   }
+  //  Failure. The view fires this again on EVERY redraw while the body stays
+  //  null, and each completed request triggers a redraw of its own -- so
+  //  releasing the key here (a finally) makes an unfetchable post a
+  //  self-sustaining request loop at redraw rate. Keep the key, release it
+  //  after a while: one request per post per five minutes is storm-proof,
+  //  and a body the core could not return still gets another chance.
+  setTimeout(() => bodyRequestsInFlight.delete(inFlightKey), FAILED_BODY_RETRY_MS);
   return null;
 }
 
