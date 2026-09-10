@@ -19,6 +19,7 @@ const config = require('config/config_resolver');
 const statistics = require('statistics/statistics');
 const debug = require('debug/debug');
 const statusbar = require('statusbar');
+const Dialog = require('dialog');
 const networkState = require('network/network_state');
 const peopleState = require('people/people_state');
 const { ChatRoomsModel, receiveLobbyChatMessage } = require('chat/chat_state');
@@ -245,6 +246,7 @@ const MobileStatus = () => {
           m('button.mobile-status-trigger[type=button]', {
             'aria-label': `Open connection status. ${summary.label}`,
             'aria-expanded': String(isOpen),
+            'aria-haspopup': 'dialog',
             onclick: () => (isOpen = true),
           }, [
             m('span.mobile-status-trigger__dot', { style: { backgroundColor: summary.color } }),
@@ -252,11 +254,12 @@ const MobileStatus = () => {
             m('i.fas.fa-chevron-up'),
           ]),
         ]),
-        isOpen && m('.mobile-status-overlay', {
-          onclick: (event) => {
-            if (event.target === event.currentTarget) isOpen = false;
-          },
-        }, m('.mobile-status-sheet', [
+        isOpen && m(Dialog, {
+          label: 'Connection status',
+          overlayClass: 'mobile-status-overlay',
+          sheetClass: 'mobile-status-sheet',
+          onclose: () => (isOpen = false),
+        }, [
           m('.mobile-status-sheet__handle'),
           m('.mobile-status-sheet__heading', [
             m('div', [
@@ -298,7 +301,7 @@ const MobileStatus = () => {
               onclick: () => window.location.reload(true),
             }, [m('i.fas.fa-sync-alt'), ' Reload']),
           ]),
-        ])),
+        ]),
       ];
     },
   };
@@ -315,24 +318,27 @@ const MobileNavigation = () => {
 
   return {
     view: () => [
-      isMoreOpen && m('.mobile-more-overlay', {
-        onclick: (event) => {
-          if (event.target === event.currentTarget) isMoreOpen = false;
-        },
-      }, m('.mobile-more-sheet', [
+      isMoreOpen && m(Dialog, {
+        label: 'More navigation',
+        overlayClass: 'mobile-more-overlay',
+        sheetClass: 'mobile-more-sheet',
+        onclose: () => (isMoreOpen = false),
+      }, [
         m('.mobile-more-sheet__handle'),
         m('h3', 'More'),
         m('.mobile-more-sheet__links', mobileMoreItems.map((item) => link(item))),
         m('.mobile-more-sheet__actions', [
+          m('button[type=button]', { onclick: () => (isMoreOpen = false) }, 'Close'),
           m('button[type=button]', { onclick: () => window.location.reload(true) }, [m('i.fas.fa-sync-alt'), ' Reload']),
           m('button[type=button]', { onclick: () => rs.logout() }, [m('i.fas.fa-sign-out-alt'), ' Logout']),
         ]),
-      ])),
+      ]),
       m('nav.mobile-bottom-nav[aria-label=Main navigation]', [
         mobileItems.map((item) => link(item, 'mobile-bottom-nav__item')),
         m('button.mobile-bottom-nav__item[type=button]', {
           class: isMoreOpen || mobileMoreItems.some((item) => item.name === routeName()) ? 'active' : '',
           'aria-expanded': String(isMoreOpen),
+          'aria-haspopup': 'dialog',
           onclick: () => (isMoreOpen = !isMoreOpen),
         }, [m('i.fas.fa-bars.sidenav-icon'), m('span', 'More')]),
       ]),

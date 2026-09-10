@@ -645,3 +645,16 @@
     cursor: pointer;
   }
 }
+
+// Reset native dialog dimensions so mobile overlays still fill the viewport.
+dialog.accessible-dialog {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  box-sizing: border-box;
+}
+dialog.accessible-dialog::backdrop { background: transparent; }
