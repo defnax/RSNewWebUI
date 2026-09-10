@@ -48,6 +48,10 @@ const sections = {
 
 const Layout = () => {
   let ownId;
+  const createBoard = () => ownId && util.popupmessage(
+    m(viewUtil.createboard, { authorId: ownId, onCreated: getBoards.load }),
+    'create-board-modal'
+  );
 
   return {
     oninit: () => {
@@ -65,20 +69,19 @@ const Layout = () => {
       });
     },
     view: (vnode) =>
-      m('.widget', [
-        m('.top-heading', [
+      m('.widget', {
+        class: vnode.attrs.pathInfo.mGroupId && !vnode.attrs.pathInfo.mMsgId ? 'boards-detail-widget' : '',
+      }, [
+        m('.top-heading', {
+          class: ['Subscribed', 'MyBoards', 'Popular', 'Other'].includes(vnode.attrs.pathInfo.tab) && !vnode.attrs.pathInfo.mGroupId
+            ? 'boards-subscribed-list-toolbar' : '',
+        }, [
           m(
-            'button',
+            'button.boards-create-button',
             {
-              onclick: () =>
-                ownId &&
-                util.popupmessage(
-                  m(viewUtil.createboard, {
-                    authorId: ownId,
-                    onCreated: getBoards.load,
-                  }),
-                  'create-board-modal'
-                ),
+              class: ['Subscribed', 'MyBoards', 'Other', 'Popular'].includes(vnode.attrs.pathInfo.tab) || vnode.attrs.pathInfo.mGroupId
+                ? 'boards-create-button--mobile-hidden' : '',
+              onclick: createBoard,
             },
             'Create Board'
           ),
@@ -94,9 +97,11 @@ const Layout = () => {
           : Object.prototype.hasOwnProperty.call(vnode.attrs.pathInfo, 'mGroupId')
           ? m(viewUtil.BoardView, {
               id: vnode.attrs.pathInfo.mGroupId,
+              onSubscriptionChange: getBoards.load,
             })
           : m(sections[vnode.attrs.pathInfo.tab], {
               list: getBoards[vnode.attrs.pathInfo.tab],
+              onCreateBoard: createBoard,
             }),
       ]),
   };

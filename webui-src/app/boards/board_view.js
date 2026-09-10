@@ -336,6 +336,17 @@ function BoardView() {
           : rs.userList.username(boardInfo.author);
       }
       const bsubscribed = boardInfo.isSubscribed;
+      const toggleSubscription = async () => {
+        const res = await rs.rsJsonApiRequest('/rsposted/subscribeToBoard', {
+          boardId: v.attrs.id,
+          subscribe: !bsubscribed,
+        });
+        if (res.body.retval) {
+          boardInfo.isSubscribed = !bsubscribed;
+          if (v.attrs.onSubscriptionChange) v.attrs.onSubscriptionChange();
+          m.redraw();
+        }
+      };
       const subscribeFlags = Number(boardInfo.subscribeFlags || 0);
       const canPublish = (subscribeFlags & (util.GROUP_SUBSCRIBE_ADMIN | util.GROUP_SUBSCRIBE_PUBLISH)) !== 0;
       const bposts = boardInfo.posts || 0;
@@ -398,8 +409,9 @@ function BoardView() {
     });
 
       return [
+        m('.board-detail-navigation', [
         m(
-          'a[title=Back]',
+          'a.board-back[title=Back][aria-label=Back]',
           {
             onclick: () =>
               m.route.set('/boards/:tab', {
@@ -408,21 +420,35 @@ function BoardView() {
           },
           m('i.fas.fa-arrow-left')
         ),
+          m('details.board-mobile-actions', {
+            onkeydown: (event) => {
+              if (event.key === 'Escape') {
+                event.currentTarget.open = false;
+                event.currentTarget.querySelector('summary').focus();
+              }
+            },
+            onfocusout: (event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false;
+            },
+          }, [
+            m('summary[aria-label=Board actions][title=Board actions]', m('i.fas.fa-ellipsis-v')),
+            m('.board-mobile-actions__items', m('button[type=button]', {
+              onclick: (event) => {
+                const menu = event.currentTarget.closest('details');
+                menu.open = false;
+                menu.querySelector('summary').focus();
+                return toggleSubscription();
+              },
+            }, bsubscribed ? 'Unsubscribe' : 'Subscribe')),
+          ]),
+        ]),
         m('.widget__heading', [
           m('h3', bname),
           m(
-            'button',
+            'button.board-subscription-button',
             {
-              onclick: async () => {
-                const res = await rs.rsJsonApiRequest('/rsposted/subscribeToBoard', {
-                  boardId: v.attrs.id,
-                  subscribe: !bsubscribed,
-                });
-                if (res.body.retval) {
-                  boardInfo.isSubscribed = !bsubscribed;
-                  m.redraw();
-                }
-              },
+              class: bsubscribed ? 'board-subscription-button--subscribed' : '',
+              onclick: toggleSubscription,
             },
             bsubscribed ? 'Subscribed' : 'Subscribe'
           ),
@@ -482,6 +508,10 @@ function BoardView() {
             ]),
             m(boardKanban.BoardView, {
               forumId: v.attrs.id,
+              onCreatePost: canPublish ? () => util.popupmessage(
+                m(CreatePost, { boardId: v.attrs.id }),
+                'create-board-post-modal'
+              ) : null,
               items,
               voterIdentities,
               voterId,
@@ -596,7 +626,7 @@ function PostView() {
 
       return [
         m(
-          'a[title=Back]',
+          'a.board-back[title=Back][aria-label=Back]',
           {
             onclick: () =>
               m.route.set('/boards/:tab/:mGroupId', {

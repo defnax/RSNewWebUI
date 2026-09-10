@@ -326,12 +326,12 @@ table {
 }
 
 .posts > .posts__heading.channel-posts-heading {
-  display: flex !important;
-  flex-direction: row !important;
-  align-items: center !important;
-  justify-content: flex-start !important;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
   width: 100%;
-  gap: 1rem !important;
+  gap: 1rem;
   flex-wrap: wrap;
   text-align: left;
 }
@@ -502,4 +502,75 @@ table {
   font-size: medium;
   margin-left: 10px;
   height: 40px;
+}
+
+
+.channel-detail-navigation { display: flex; align-items: center; }
+.channel-mobile-search, .channel-mobile-actions, .channel-mobile-create { display: none; }
+
+@media (max-width: 700px) {
+  .tab-content:has(.channels-detail-widget) { position: relative; }
+  .widget.channels-detail-widget {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 36px auto minmax(0, 1fr);
+    row-gap: 4px;
+    > .top-heading { display: none; }
+    > .widget__body { min-height: 0; }
+    .channel-subscription--subscribed,
+    .posts > .channel-posts-heading { display: none; }
+    .posts { margin-top: 9px; min-height: 0; }
+    .posts-container { padding: .5rem; }
+  }
+  .channel-detail-navigation { justify-content: space-between; gap: .5rem; }
+  a.channel-back[title='Back'] {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px; padding: 0; flex-shrink: 0;
+    border-radius: 50%; background: #e8f4fc; color: #0788cb; font-size: 1.15rem;
+  }
+  a.channel-back[title='Back']:hover { background: #d5ebfa; }
+  .channel-back .fa-arrow-left::before { content: "\f053"; }
+  .channel-mobile-search {
+    display: flex; align-items: center; justify-content: flex-end;
+    gap: .5rem; min-width: 0; flex: 1;
+    input { min-width: 0; max-width: 100%; }
+  }
+  .channel-mobile-create {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 32px; height: 32px; padding: 0; font-size: .85rem;
+  }
+  .channel-mobile-actions {
+    display: block; position: absolute; top: 0; right: .5rem; z-index: 1001;
+    summary {
+      display: flex; align-items: center; justify-content: center;
+      width: 44px; height: 44px; cursor: pointer; list-style: none;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary:focus-visible { outline: 2px solid #0788cb; }
+    &__items {
+      position: absolute; right: 0; top: 100%; min-width: 10rem;
+      padding: .35rem; background: #fff; border: 1px solid #cbd5e1;
+      border-radius: .375rem; box-shadow: 0 4px 12px rgba(15, 23, 42, .15);
+    }
+    &__items button {
+      width: 100%; min-height: 44px; text-align: left;
+      background: #fff; color: #334155; box-shadow: none;
+    }
+    &__items button:hover { background: #f1f5f9; }
+  }
+}
+
+
+.channels-heading-create { display: none; }
+@media (max-width: 700px) {
+  .channels-create-button { display: none; }
+  .channels-heading-create {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    font-size: .85rem;
+  }
 }

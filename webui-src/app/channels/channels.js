@@ -52,6 +52,10 @@ const sections = {
 
 const Layout = () => {
   let ownId;
+  const createChannel = () => ownId && widget.popupMessage(
+    m(viewUtil.createchannel, { authorId: ownId, onCreated: getChannels.load }),
+    'create-channel-modal'
+  );
 
   return {
     oninit: () => {
@@ -75,20 +79,14 @@ const Layout = () => {
     },
     // onupdate: getChannels.load,
     view: (vnode) =>
-      m('.widget', [
+      m('.widget', {
+        class: vnode.attrs.pathInfo.mGroupId && !vnode.attrs.pathInfo.mMsgId ? 'channels-detail-widget' : '',
+      }, [
         m('.top-heading', [
           m(
-            'button',
+            'button.channels-create-button',
             {
-              onclick: () =>
-                ownId &&
-                widget.popupMessage(
-                  m(viewUtil.createchannel, {
-                    authorId: ownId,
-                    onCreated: getChannels.load,
-                  }),
-                  'create-channel-modal'
-                ),
+              onclick: createChannel,
             },
             'Create Channel'
           ),
@@ -111,10 +109,12 @@ const Layout = () => {
           : Object.prototype.hasOwnProperty.call(vnode.attrs.pathInfo, 'mGroupId') // channels view
           ? m(viewUtil.ChannelView, {
               id: vnode.attrs.pathInfo.mGroupId,
+              onSubscriptionChange: getChannels.load,
             })
           : m(sections[vnode.attrs.pathInfo.tab], {
               // subscribed, all, popular, other
               list: getChannels[vnode.attrs.pathInfo.tab],
+              onCreateChannel: createChannel,
             }),
       ]),
   };

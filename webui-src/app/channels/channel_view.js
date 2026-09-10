@@ -451,6 +451,17 @@ const ChannelView = () => {
   let plist = {};
   let createDate = {};
   let lastActivity = {};
+  const toggleSubscription = async (attrs) => {
+    const res = await rs.rsJsonApiRequest('/rsgxschannels/subscribeToChannel', {
+      channelId: attrs.id, subscribe: !csubscribed,
+    });
+    if (res.body.retval) {
+      csubscribed = !csubscribed;
+      Data.DisplayChannels[attrs.id].isSubscribed = csubscribed;
+      if (attrs.onSubscriptionChange) attrs.onSubscriptionChange();
+      m.redraw();
+    }
+  };
   return {
     oninit: (v) => {
       if (Data.DisplayChannels[v.attrs.id]) {
@@ -490,8 +501,9 @@ const ChannelView = () => {
       });
     },
     view: (v) => [
+      m('.channel-detail-navigation', [
       m(
-        'a[title=Back]',
+        'a.channel-back[title=Back][aria-label=Back]',
         {
           onclick: () =>
             m.route.set('/channels/:tab', {
@@ -500,21 +512,42 @@ const ChannelView = () => {
         },
         m('i.fas.fa-arrow-left')
       ),
+        m('.channel-mobile-search', [
+          m(util.SearchBar, { category: 'posts', channelId: v.attrs.id }),
+        ]),
+        m('details.channel-mobile-actions', {
+          onkeydown: (event) => {
+            if (event.key === 'Escape') {
+              event.currentTarget.open = false;
+              event.currentTarget.querySelector('summary').focus();
+            }
+          },
+          onfocusout: (event) => {
+            if (!event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false;
+          },
+        }, [
+          m('summary[aria-label=Channel actions][title=Channel actions]', m('i.fas.fa-ellipsis-v')),
+          m('.channel-mobile-actions__items', m('button[type=button]', {
+            onclick: (event) => {
+              const menu = event.currentTarget.closest('details');
+              menu.open = false;
+              menu.querySelector('summary').focus();
+              return toggleSubscription(v.attrs);
+            },
+          }, csubscribed ? 'Unsubscribe' : 'Subscribe')),
+        ]),
+      ]),
       m('.widget__heading', [
         m('h3', cname),
+          mychannel && csubscribed && m('button.channel-mobile-create[type=button][title=Add Post][aria-label=Add Post]', {
+            onclick: () => widget.popupMessage(m(AddPost, { chanId: v.attrs.id }), 'create-channel-post-modal'),
+          }, m('i.fas.fa-plus')),
+
         m(
           'button',
           {
-            onclick: async () => {
-              const res = await rs.rsJsonApiRequest('/rsgxschannels/subscribeToChannel', {
-                channelId: v.attrs.id,
-                subscribe: !csubscribed,
-              });
-              if (res.body.retval) {
-                csubscribed = !csubscribed;
-                Data.DisplayChannels[v.attrs.id].isSubscribed = csubscribed;
-              }
-            },
+            class: csubscribed ? 'channel-subscription--subscribed' : '',
+            onclick: () => toggleSubscription(v.attrs),
           },
           csubscribed ? 'Subscribed' : 'Subscribe'
         ),
@@ -683,7 +716,7 @@ const PostView = () => {
       const hasLongMessage = messageText.length > 280 || hasEmbeddedImage;
       return [
       m(
-        'a[title=Back]',
+        'a.channel-back[title=Back][aria-label=Back]',
         {
           onclick: () =>
             m.route.set('/channels/:tab/:mGroupId', {

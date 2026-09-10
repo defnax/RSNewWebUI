@@ -1198,3 +1198,129 @@ button.board-card__vote-btn,
   }
   .board-card__notes-btn i { margin: 0; }
 }
+
+.board-detail-navigation { display: flex; align-items: center; justify-content: space-between; }
+.board-mobile-actions { display: none; }
+
+@media (max-width: 700px) {
+  .widget > .top-heading.boards-subscribed-list-toolbar {
+    justify-content: flex-end;
+  }
+}
+
+.my-boards-create,
+.other-boards-create,
+.popular-boards-create { display: none; }
+
+@media (max-width: 700px) {
+  .my-boards-create,
+  .other-boards-create,
+  .popular-boards-create {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    font-size: .85rem;
+  }
+}
+
+.board-toolbar__create-post { display: none; }
+
+@media (max-width: 700px) {
+  .posts > .posts__heading.board-posts-heading { display: none; }
+  .board-toolbar__create-post {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    font-size: .85rem;
+    padding: 0;
+  }
+  .board-toolbar__left .board-toolbar__search {
+    min-width: 0;
+    max-width: none;
+  }
+}
+
+@media (max-width: 700px) {
+  .tab-content:has(.boards-detail-widget) { position: relative; }
+
+  .widget.boards-detail-widget {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 36px auto minmax(0, 1fr);
+    row-gap: 4px;
+
+    > .top-heading {
+      grid-area: 1 / 1;
+      margin-left: 44px;
+      justify-content: flex-end;
+      min-width: 0;
+    }
+    > .board-detail-navigation {
+      grid-area: 1 / 1;
+      width: 44px;
+    }
+    > .widget__heading { grid-area: 2 / 1; }
+    > .widget__body { grid-area: 3 / 1; min-height: 0; }
+
+    .posts { margin-top: 1px; }
+
+    .board-mobile-actions {
+      position: absolute;
+      top: 0;
+      right: .5rem;
+      z-index: 1001;
+    }
+  }
+}
+
+@media (max-width: 700px) {
+  .boards-create-button--mobile-hidden,
+  .board-subscription-button--subscribed { display: none; }
+  .board-mobile-actions {
+    display: block;
+    position: relative;
+    summary {
+      display: flex; align-items: center; justify-content: center;
+      width: 44px; height: 44px; border-radius: .375rem;
+      cursor: pointer; list-style: none;
+    }
+    summary::-webkit-details-marker { display: none; }
+    summary:focus-visible { outline: 2px solid #0788cb; }
+    &__items {
+      position: absolute; right: 0; top: 100%; z-index: 10;
+      min-width: 10rem; padding: .35rem; background: #fff;
+      border: 1px solid #cbd5e1; border-radius: .375rem;
+      box-shadow: 0 4px 12px rgba(15, 23, 42, .15);
+    }
+    &__items button {
+      width: 100%; min-height: 44px; text-align: left;
+      background: #fff; color: #334155; box-shadow: none;
+    }
+    &__items button:hover { background: #f1f5f9; }
+  }
+}
+
+
+@media (max-width: 700px) {
+  a.board-back[title='Back'] {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background-color: #e8f4fc;
+    color: #0788cb;
+    font-size: 1.15rem;
+    text-decoration: none;
+  }
+  a.board-back[title='Back']:hover { background-color: #d5ebfa; }
+  .board-back .fa-arrow-left::before { content: "\f053"; }
+}

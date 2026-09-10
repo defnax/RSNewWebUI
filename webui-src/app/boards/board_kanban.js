@@ -442,6 +442,9 @@ function Toolbar() {
       return m('.board-toolbar', { role: 'toolbar', 'aria-label': 'Board View Controls' }, [
         // Left section: Search Filter
         m('.board-toolbar__left', [
+          vnode.attrs.onCreatePost && m('button.board-toolbar__create-post[type=button][title=Create Post][aria-label=Create Post]', {
+            onclick: vnode.attrs.onCreatePost,
+          }, m('i.fas.fa-plus')),
           onSearchInput
             ? m('.board-toolbar__search', [
                 m('i.fas.fa-search.board-toolbar__search-icon'),
@@ -614,6 +617,7 @@ function BoardView() {
         // Top Toolbar with Pagination
         m(Toolbar, {
           key: 'toolbar-node',
+          onCreatePost: vnode.attrs.onCreatePost,
           viewMode,
           onViewModeChange: (newMode) => {
             viewMode = newMode;
