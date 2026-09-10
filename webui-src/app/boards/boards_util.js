@@ -271,6 +271,34 @@ function popupmessage(message, modalClass = '') {
   widget.popupMessage(message, modalClass);
 }
 
+//  Replace the cached post only once the core's background tally has moved
+//  past the pre-vote counts: a blind fixed-delay refetch could land BEFORE
+//  the retally (one board per tick, asynchronous write), revert the
+//  optimistic bump on screen, and stick -- updateDisplayBoards never
+//  refreshes cached content. Bounded retries; on give-up the bump stays.
+function refetchPostAfterRetally(postGrpId, postMsgId, baseline, attempt = 0) {
+  setTimeout(async () => {
+    try {
+      const res = await rs.rsJsonApiRequest('/rsPosted/getBoardContent', {
+        boardId: postGrpId,
+        contentsIds: [postMsgId],
+      });
+      const post = res && res.body && res.body.retval
+        && ((res.body.posts || res.body.postList || [])[0]);
+      if (!post) return;
+      const up = Number(post.mUpVotes || 0);
+      const down = Number(post.mDownVotes || 0);
+      if (up === baseline.up && down === baseline.down) {
+        if (attempt < 3) refetchPostAfterRetally(postGrpId, postMsgId, baseline, attempt + 1);
+        return;
+      }
+      if (!Data.Posts[postGrpId]) Data.Posts[postGrpId] = {};
+      Data.Posts[postGrpId][postMsgId] = { post, isSearched: true };
+      m.redraw();
+    } catch (e) { /* a failed refetch leaves the bump */ }
+  }, 30000);
+}
+
 async function voteForPost(postGrpId, postMsgId, voteType, voterId = null) {
   try {
     let authorId = voterId;
@@ -294,13 +322,17 @@ async function voteForPost(postGrpId, postMsgId, voteType, voterId = null) {
 
     if (res && res.body && res.body.retval) {
       //  No immediate refetch: a post's count lives in mMeta.mServiceString,
-      //  retallied by the core's background pass (~15 s, p3postbase) -- an
-      //  immediate getBoardContent returns the OLD count and replaces the
-      //  cached post object out from under the callers' optimistic +1.
-      //  Callers bump the number they render; one refetch after the pass has
-      //  run lands on the core's own tally.
+      //  retallied by the core's background pass -- one board per ~15 s tick,
+      //  landing asynchronously -- so an immediate getBoardContent returns
+      //  the OLD count and would replace the cached post object out from
+      //  under the callers' optimistic +1. Callers bump the number they
+      //  render; the refetch below waits for the retally to actually show.
+      const entry = Data.Posts[postGrpId] && Data.Posts[postGrpId][postMsgId];
+      const baseline = entry && entry.post
+        ? { up: Number(entry.post.mUpVotes || 0), down: Number(entry.post.mDownVotes || 0) }
+        : null;
+      if (baseline) refetchPostAfterRetally(postGrpId, postMsgId, baseline);
       m.redraw();
-      setTimeout(() => { updateContent(postMsgId, postGrpId); }, 30000);
       return true;
     }
   } catch (e) {

@@ -565,7 +565,19 @@ function openDistantChat(session) {
       //  null id: taking "000...0" for a tunnel makes the status poll chase
       //  it and declare the conversation gone.
       const hexPid = res && res.pid ? rs.idToHex(res.pid) : '';
-      if (hexPid && !/^0+$/.test(hexPid)) {
+      if (!hexPid || /^0+$/.test(hexPid)) {
+        //  Refused (unknown own identity, for one). Without a terminal state
+        //  the pane said "Please wait for secure tunnel" forever.
+        session.disconnected = true;
+        addSessionSystemMessage(session, 'The core refused to open the tunnel.');
+        if (State.selectedId === askedFor) {
+          State.chatDisconnected = true;
+          State.chatEndedByPoll = true;
+          m.redraw();
+        }
+        return;
+      }
+      {
         //  The session keeps its pid whatever is on screen by now; the
         //  page-wide state and the loads/polls belong to the conversation
         //  still being looked at. Without this, a late answer clobbered

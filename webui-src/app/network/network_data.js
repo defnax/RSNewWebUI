@@ -66,6 +66,9 @@ function ensureCacheLogin() {
     cachedDetails = {};
     refreshInFlight = null;
     refreshedAt = 0;
+    //  A rerun queued under the previous login must not swallow the next
+    //  login's first force call.
+    rerunQueued = false;
   }
   return key;
 }
