@@ -528,6 +528,9 @@ function findLiveTunnelIdentity(peerGxsId, done) {
 }
 
 function openDistantChat(session) {
+  //  Captured now: the initiate answer can land seconds later, after the
+  //  user moved to another contact.
+  const askedFor = State.selectedId;
   session.pid = null;
   session.status = null;
   resetSessionMessages(session, [
@@ -558,9 +561,19 @@ function openDistantChat(session) {
       notify: true,
     },
     (res) => {
-      if (res && res.pid) {
-        const hexPid = rs.idToHex(res.pid);
+      //  A refused initiate (unknown own identity, for one) answers with a
+      //  null id: taking "000...0" for a tunnel makes the status poll chase
+      //  it and declare the conversation gone.
+      const hexPid = res && res.pid ? rs.idToHex(res.pid) : '';
+      if (hexPid && !/^0+$/.test(hexPid)) {
+        //  The session keeps its pid whatever is on screen by now; the
+        //  page-wide state and the loads/polls belong to the conversation
+        //  still being looked at. Without this, a late answer clobbered
+        //  State.chatPid and every downstream guard that compares against
+        //  it, merging the old contact's tunnel into the new one's view.
         session.pid = hexPid;
+        if (State.selectedId !== askedFor) return;
+
         State.chatPid = hexPid;
         State.distantChatStatus = null;
         drainBufferedChatMessages(session);
@@ -587,8 +600,10 @@ function loadChatMessages() {
   if (!State.chatPid) return;
 
   //  Captured now: the answer may come back after the user selected another
-  //  peer, and it must then land in the session it was asked for.
-  const session = State.selectedId ? getDistantChatSession(State.selectedId) : null;
+  //  peer, and it must then land in the session -- and the Chats preview
+  //  line -- it was asked for.
+  const askedFor = State.selectedId;
+  const session = askedFor ? getDistantChatSession(askedFor) : null;
   //  The current tunnel first, then whatever else the core holds with this
   //  contact (other identities, direct chat), so the pane shows the whole
   //  conversation and not only the file of the tunnel just opened.
@@ -611,23 +626,27 @@ function loadChatMessages() {
           //  the live event handler share.
           addSessionMessages(session, data.msgs);
           if (session.pid === State.chatPid) State.chatMessages = session.messages;
-        } else {
+        } else if (State.selectedId === askedFor) {
           State.chatMessages = data.msgs;
         }
+        //  The preview line and the scroll belong to the contact this was
+        //  asked for: a late answer after a switch must not write the old
+        //  conversation's last message under the new contact's key -- nor
+        //  delete the new contact's entry when the old query was empty.
         const realUserMsgs = data.msgs.filter(
           (m) => !m.isSystem && !isSystemMsg(m.message || m.msg)
         );
-        if (realUserMsgs.length > 0 && State.selectedId) {
+        if (realUserMsgs.length > 0 && askedFor) {
           const last = realUserMsgs[realUserMsgs.length - 1];
-          State.chatHistoryMap[State.selectedId] = {
+          State.chatHistoryMap[askedFor] = {
             lastMsg: last.message || last.msg || '',
             lastTime: last.sendTime || last.recvTime || Math.floor(Date.now() / 1000),
           };
-        } else if (State.selectedId) {
-          delete State.chatHistoryMap[State.selectedId];
+        } else if (askedFor) {
+          delete State.chatHistoryMap[askedFor];
         }
         m.redraw();
-        scrollChatToBottom();
+        if (State.selectedId === askedFor) scrollChatToBottom();
       }
     }
   );
@@ -1085,7 +1104,10 @@ function loadOlderChatHistory(done) {
       if (!anyFull) session.historyExhausted = true;
       if (session.pid === State.chatPid) State.chatMessages = session.messages;
       m.redraw();
-      if (done) done();
+      //  done() restores a scroll position measured in the pane of the
+      //  conversation that asked; fired after a switch it would perturb the
+      //  new one (same rule as the rooms' loadOlderHistory).
+      if (done && State.selectedId === gxsId) done();
     });
   });
   return true;
