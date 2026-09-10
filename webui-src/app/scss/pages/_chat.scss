@@ -372,6 +372,7 @@ textarea.chatMsg {
   }
 }
 
+
 @media (min-width: 900px) {
   .mobile-menu-icons {
     display: none;
@@ -409,10 +410,6 @@ textarea.chatMsg {
   align-items: center !important;
   justify-content: space-between !important;
   gap: 0.75rem !important;
-  // Kept from master: .chat-create-lobby-btn is still declared `position:
-  // absolute; bottom: .5rem; right: 1.25rem` further down this file, so the
-  // card has to stay its containing block. Without this the button escapes to
-  // the initial containing block and lands at the bottom right of the page.
   position: relative;
 
   .profile-header {
@@ -423,17 +420,35 @@ textarea.chatMsg {
     min-width: 0 !important;
   }
 
-  .chat-create-lobby-btn {
-    display: flex !important;
+
+
+  .chat-create-room-btn {
+    display: inline-flex !important;
     align-items: center !important;
-    gap: 0.35rem !important;
-    padding: 0.4rem 0.85rem !important;
-    font-size: 0.85rem !important;
-    font-weight: 600 !important;
-    border-radius: 0.375rem !important;
-    cursor: pointer !important;
-    flex-shrink: 0 !important;
-    white-space: nowrap !important;
+    justify-content: center !important;
+
+    // Desktop: hide the + icon
+    i {
+      display: none;
+    }
+
+    // Phone mode: show only the + icon and hide the Create text
+    @media (max-width: 700px), (max-width: 899px) and (max-height: 500px) {
+      width: 32px !important;
+      min-width: 32px !important;
+      height: 32px !important;
+      padding: 0 !important;
+
+      i {
+        display: inline-block !important;
+        margin: 0 !important;
+        font-size: 0.95rem !important;
+      }
+
+      .btn-text {
+        display: none !important;
+      }
+    }
   }
 
   .profile-info {
@@ -1648,33 +1663,7 @@ label.mobile-chat-attachment__option:hover {
 // Chat-hub extras: user tooltip, right-bar context menu, attach-file modal,
 // emoji picker, create-lobby button (chat.js). Recovered from compiled styles.css.
 
-.chat-create-lobby-btn {
-  position: absolute;
-  bottom: 0.5rem;
-  right: 1.25rem;
-  background-color: #0084ff;
-  color: #ffffff;
-  border: none;
-  border-radius: 0.375rem;
-  padding: 0.35rem 0.75rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 4px 6px -1px rgba(0, 132, 255, 0.2), 0 2px 4px -1px rgba(0, 132, 255, 0.1);
-  transition: background-color 0.2s, transform 0.2s;
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-}
 
-.chat-create-lobby-btn:hover {
-  background-color: #0073e6;
-  transform: translateY(-1px);
-}
-
-.chat-create-lobby-btn:active {
-  transform: translateY(0);
-}
 
 .chat-hub-rightbar .user .user-name {
   white-space: nowrap;

@@ -1509,13 +1509,15 @@ const Layout = {
               m('.profile-name', 'Chat rooms'),
             ]),
           ]),
-          m('button.chat-create-lobby-btn', {
+          m('button.chat-create-room-btn', {
+            title: 'Create room',
+            'aria-label': 'Create room',
             onclick: () => {
               ChatHubState.showCreateRoomModal = true;
             }
           }, [
             m('i.fas.fa-plus'),
-            ' Create'
+            m('span.btn-text', 'Create')
           ])
         ]),
 
