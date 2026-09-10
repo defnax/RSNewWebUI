@@ -15,9 +15,14 @@ const Dialog = () => {
       //  but showModal() keeps the whole page inert regardless -- rotating to
       //  landscape with a sheet open left the UI untappable with no visible
       //  way out. Crossing into the desktop layout closes the sheet instead.
-      desktopQuery = window.matchMedia('(min-width: 701px)');
+      //  The SAME condition the stylesheet uses to show the sheet
+      //  (max-width: 700px), so JS and CSS agree at every width -- a
+      //  min-width: 701px mirror leaves a fractional crack (700 < w < 701,
+      //  common at desktop zoom levels) where the sheet is hidden but still
+      //  modal.
+      desktopQuery = window.matchMedia('(max-width: 700px)');
       onLayoutChange = (event) => {
-        if (event.matches) {
+        if (!event.matches) {
           onclose();
           m.redraw();
         }
