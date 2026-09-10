@@ -293,11 +293,14 @@ async function voteForPost(postGrpId, postMsgId, voteType, voterId = null) {
     });
 
     if (res && res.body && res.body.retval) {
-      // Let an older board load finish before replacing this post with fresh
-      // vote totals. updateDisplayBoards skips content that is already cached.
-      if (inFlightBoards[postGrpId]) await inFlightBoards[postGrpId];
-      await updateContent(postMsgId, postGrpId);
+      //  No immediate refetch: a post's count lives in mMeta.mServiceString,
+      //  retallied by the core's background pass (~15 s, p3postbase) -- an
+      //  immediate getBoardContent returns the OLD count and replaces the
+      //  cached post object out from under the callers' optimistic +1.
+      //  Callers bump the number they render; one refetch after the pass has
+      //  run lands on the core's own tally.
       m.redraw();
+      setTimeout(() => { updateContent(postMsgId, postGrpId); }, 30000);
       return true;
     }
   } catch (e) {
