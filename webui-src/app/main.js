@@ -26,35 +26,79 @@ const { ChatRoomsModel, receiveLobbyChatMessage } = require('chat/chat_state');
 const sumCounts = (counts) => Object.values(counts || {})
   .reduce((total, count) => total + Number(count || 0), 0);
 
-function navigationCount(name) {
-  if (name === 'network') return sumCounts(networkState.State.unreadChatCount);
-  if (name === 'people') return sumCounts(peopleState.State.unreadChatCount);
-  if (name === 'chat') {
-    return sumCounts(ChatRoomsModel.unreadCount) + ChatRoomsModel.invitationCount();
-  }
-  if (name === 'mail') return mail.Messages.unreadCount();
-  return 0;
-}
+// Shared by the desktop rail, mobile tabs, and mobile More sheet.
+// Count callbacks read current state on every render.
+const navigationItems = [
+  {
+    name: 'home', href: '/home', label: 'Home',
+    icon: 'i.fas.fa-home.sidenav-icon', mobile: 'primary',
+  },
+  {
+    name: 'network', href: '/network', label: 'Network',
+    icon: 'i.fas.fa-share-alt.sidenav-icon', mobile: 'primary',
+    count: () => sumCounts(networkState.State.unreadChatCount),
+  },
+  {
+    name: 'people', href: '/people/MyContacts', label: 'People',
+    icon: 'i.fas.fa-users.sidenav-icon', mobile: 'primary',
+    count: () => sumCounts(peopleState.State.unreadChatCount),
+  },
+  {
+    name: 'chat', href: '/chat', label: 'Chat',
+    icon: 'i.fas.fa-comments.sidenav-icon', mobile: 'primary',
+    count: () => sumCounts(ChatRoomsModel.unreadCount) + ChatRoomsModel.invitationCount(),
+  },
+  {
+    name: 'mail', href: '/mail/inbox', label: 'Mail',
+    icon: 'i.fas.fa-envelope.sidenav-icon', mobile: 'primary',
+    count: () => mail.Messages.unreadCount(),
+  },
+  {
+    name: 'files', href: '/files/files', label: 'Files',
+    icon: 'i.fas.fa-folder-open.sidenav-icon', mobile: 'more',
+  },
+  {
+    name: 'channels', href: '/channels/MyChannels', label: 'Channels',
+    icon: 'i.fas.fa-tv.sidenav-icon', mobile: 'more',
+  },
+  {
+    name: 'forums', href: '/forums/MyForums', label: 'Forums',
+    icon: 'i.fas.fa-bullhorn.sidenav-icon', mobile: 'more',
+  },
+  {
+    name: 'boards', href: '/boards/MyBoards', label: 'Boards',
+    icon: 'i.fas.fa-globe.sidenav-icon', mobile: 'more',
+  },
+  {
+    name: 'statistics', href: '/statistics', label: 'Statistics',
+    icon: 'i.fas.fa-chart-pie.sidenav-icon', mobile: 'more',
+  },
+  {
+    name: 'config', href: '/config/network', label: 'Config',
+    icon: 'i.fas.fa-cogs.sidenav-icon', mobile: 'more',
+  },
+  {
+    name: 'debug', href: '/debug', label: 'Debug',
+    icon: 'i.fas.fa-bug.sidenav-icon', mobile: 'more',
+  },
+];
 
-const navIcon = {
-  home: 'i.fas.fa-home.sidenav-icon',
-  network: 'i.fas.fa-share-alt.sidenav-icon',
-  people: 'i.fas.fa-users.sidenav-icon',
-  chat: 'i.fas.fa-comments.sidenav-icon',
-  mail: 'i.fas.fa-envelope.sidenav-icon',
-  files: 'i.fas.fa-folder-open.sidenav-icon',
-  channels: 'i.fas.fa-tv.sidenav-icon',
-  forums: 'i.fas.fa-bullhorn.sidenav-icon',
-  boards: 'i.fas.fa-globe.sidenav-icon',
-  config: 'i.fas.fa-cogs.sidenav-icon',
-  statistics: 'i.fas.fa-chart-pie.sidenav-icon',
-  debug: 'i.fas.fa-bug.sidenav-icon',
-};
+const mobileItems = navigationItems.filter((item) => item.mobile === 'primary');
+const mobileMoreItems = navigationItems.filter((item) => item.mobile === 'more');
+
+function navigationContent(item) {
+  const count = item.count ? item.count() : 0;
+  return [
+    m(item.icon),
+    m('span', item.label),
+    count > 0 && m('b.nav-unread-badge', count),
+  ];
+}
 
 const navbar = () => {
   let isCollapsed = true;
   return {
-    view: (vnode) =>
+    view: () =>
       m(
         'nav.nav-menu',
         {
@@ -82,20 +126,15 @@ const navbar = () => {
             m('.nav-menu__logo-text', [m('h5', 'RetroShare')]),
           ]),
           m('.nav-menu__box', { style: { flex: 1 } }, [
-            Object.keys(vnode.attrs.links).map((linkName) => {
-              const active = m.route.get().split('/')[1] === linkName;
-              const count = navigationCount(linkName);
+            navigationItems.map((item) => {
+              const active = m.route.get().split('/')[1] === item.name;
               return m(
                 m.route.Link,
                 {
-                  href: vnode.attrs.links[linkName],
+                  href: item.href,
                   class: (active ? 'active-link' : '') + ' item',
                 },
-                [
-                  m(navIcon[linkName]),
-                  m('span', linkName.charAt(0).toUpperCase() + linkName.slice(1)),
-                  count > 0 && m('b.nav-unread-badge', count),
-                ]
+                navigationContent(item)
               );
             }),
             m(
@@ -189,24 +228,6 @@ const navbar = () => {
   };
 };
 
-const mobileLinks = {
-  home: '/home',
-  network: '/network',
-  people: '/people/MyContacts',
-  chat: '/chat',
-  mail: '/mail/inbox',
-};
-
-const mobileMoreLinks = {
-  files: '/files/files',
-  channels: '/channels/MyChannels',
-  forums: '/forums/MyForums',
-  boards: '/boards/MyBoards',
-  config: '/config/network',
-  statistics: '/statistics',
-  debug: '/debug',
-};
-
 const MobileStatus = () => {
   let isOpen = false;
   return {
@@ -286,15 +307,11 @@ const MobileStatus = () => {
 const MobileNavigation = () => {
   let isMoreOpen = false;
   const routeName = () => m.route.get().split('/')[1];
-  const link = (name, href) => m(m.route.Link, {
-    href,
-    class: `mobile-bottom-nav__item${routeName() === name ? ' active' : ''}`,
+  const link = (item, className = '') => m(m.route.Link, {
+    href: item.href,
+    class: `${className}${routeName() === item.name ? ' active' : ''}`.trim(),
     onclick: () => (isMoreOpen = false),
-  }, [
-    m(navIcon[name]),
-    m('span', name.charAt(0).toUpperCase() + name.slice(1)),
-    navigationCount(name) > 0 && m('b.nav-unread-badge', navigationCount(name)),
-  ]);
+  }, navigationContent(item));
 
   return {
     view: () => [
@@ -305,22 +322,16 @@ const MobileNavigation = () => {
       }, m('.mobile-more-sheet', [
         m('.mobile-more-sheet__handle'),
         m('h3', 'More'),
-        m('.mobile-more-sheet__links', Object.entries(mobileMoreLinks).map(([name, href]) =>
-          m(m.route.Link, {
-            href,
-            class: routeName() === name ? 'active' : '',
-            onclick: () => (isMoreOpen = false),
-          }, [m(navIcon[name]), m('span', name.charAt(0).toUpperCase() + name.slice(1))])
-        )),
+        m('.mobile-more-sheet__links', mobileMoreItems.map((item) => link(item))),
         m('.mobile-more-sheet__actions', [
           m('button[type=button]', { onclick: () => window.location.reload(true) }, [m('i.fas.fa-sync-alt'), ' Reload']),
           m('button[type=button]', { onclick: () => rs.logout() }, [m('i.fas.fa-sign-out-alt'), ' Logout']),
         ]),
       ])),
       m('nav.mobile-bottom-nav[aria-label=Main navigation]', [
-        Object.entries(mobileLinks).map(([name, href]) => link(name, href)),
+        mobileItems.map((item) => link(item, 'mobile-bottom-nav__item')),
         m('button.mobile-bottom-nav__item[type=button]', {
-          class: isMoreOpen || Object.keys(mobileMoreLinks).includes(routeName()) ? 'active' : '',
+          class: isMoreOpen || mobileMoreItems.some((item) => item.name === routeName()) ? 'active' : '',
           'aria-expanded': String(isMoreOpen),
           onclick: () => (isMoreOpen = !isMoreOpen),
         }, [m('i.fas.fa-bars.sidenav-icon'), m('span', 'More')]),
@@ -355,22 +366,7 @@ const Layout = () => {
     },
     view: (vnode) =>
       m('.content', [
-        m(navbar, {
-          links: {
-            home: '/home',
-            network: '/network',
-            people: '/people/MyContacts',
-            chat: '/chat',
-            mail: '/mail/inbox',
-            files: '/files/files',
-            channels: '/channels/MyChannels',
-            forums: '/forums/MyForums',
-            boards: '/boards/MyBoards',
-            statistics: '/statistics',
-            config: '/config/network',
-            debug: '/debug',
-          },
-        }),
+        m(navbar),
         m(
           '.main-container',
           {
