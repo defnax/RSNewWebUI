@@ -195,29 +195,29 @@ module.exports = {
         m('.bandwidth-stat-card', [
           m('.bandwidth-stat-card__icon.bandwidth-stat-card__icon--in', m('i.fas.fa-arrow-down')),
           m('.bandwidth-stat-card__body', [
-            m('.bandwidth-stat-card__value', `${formatRate(totals.rateIn)} kB/s`),
-            m('.bandwidth-stat-card__label', 'Download speed'),
+            m('.bandwidth-stat-card__value', formatBytes(totals.totalIn)),
+            m('.bandwidth-stat-card__label', 'Session In'),
           ]),
         ]),
         m('.bandwidth-stat-card', [
           m('.bandwidth-stat-card__icon.bandwidth-stat-card__icon--out', m('i.fas.fa-arrow-up')),
           m('.bandwidth-stat-card__body', [
-            m('.bandwidth-stat-card__value', `${formatRate(totals.rateOut)} kB/s`),
-            m('.bandwidth-stat-card__label', 'Upload speed'),
+            m('.bandwidth-stat-card__value', formatBytes(totals.totalOut)),
+            m('.bandwidth-stat-card__label', 'Session Out'),
           ]),
         ]),
         m('.bandwidth-stat-card', [
           m('.bandwidth-stat-card__icon.bandwidth-stat-card__icon--queue', m('i.fas.fa-layer-group')),
           m('.bandwidth-stat-card__body', [
             m('.bandwidth-stat-card__value', formatBytes(totals.queueOutBytes)),
-            m('.bandwidth-stat-card__label', `Queue (${totals.queueOut} pkts / ${Math.round(totals.drain)}s drain)`),
+            m('.bandwidth-stat-card__label', 'Queue Size'),
           ]),
         ]),
         m('.bandwidth-stat-card', [
-          m('.bandwidth-stat-card__icon.bandwidth-stat-card__icon--session', m('i.fas.fa-exchange-alt')),
+          m('.bandwidth-stat-card__icon.bandwidth-stat-card__icon--drain', m('i.fas.fa-stopwatch')),
           m('.bandwidth-stat-card__body', [
-            m('.bandwidth-stat-card__value', `${formatBytes(totals.totalIn)} / ${formatBytes(totals.totalOut)}`),
-            m('.bandwidth-stat-card__label', 'Session In / Out'),
+            m('.bandwidth-stat-card__value', `${totals.queueOut.toLocaleString()} ${totals.queueOut === 1 ? 'pkt' : 'pkts'} / ${Math.round(totals.drain)}s`),
+            m('.bandwidth-stat-card__label', 'Queue Packets & Drain'),
           ]),
         ]),
       ]),
