@@ -672,3 +672,13 @@ table.threadreply tr:hover {
   .forum-thread-composer__attachment { max-width: 100%; flex: 1 1 100%; }
   .forum-thread-composer__actions button { width: 100%; }
 }
+
+/* The shared media-item hides its description at phone widths (_media.scss,
+ * !important) -- right for channel/board media grids, wrong for the forum
+ * header, whose description was visible on phone before the shared component
+ * replaced the old detail card. */
+@media (max-width: 768px) {
+  .forum-detail-heading + .media-item .media-item__desc {
+    display: block !important;
+  }
+}
