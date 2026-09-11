@@ -534,7 +534,7 @@ const ThreadView = () => {
       if (!threadStruct) {
         return m('.forum-thread-view', [
           m(
-            'a[title=Back]',
+            'a.forum-back[title=Back][aria-label=Back]',
             {
               onclick: () => m.route.set('/forums/:tab/:mGroupId', {
                 tab: m.route.param().tab,
@@ -552,7 +552,7 @@ const ThreadView = () => {
 
       return m('.forum-thread-view', { key: msgId }, [
         m(
-          'a[title=Back]',
+          'a.forum-back[title=Back][aria-label=Back]',
           {
             onclick: () => m.route.set('/forums/:tab/:mGroupId', {
               tab: m.route.param().tab,
@@ -611,6 +611,7 @@ const ThreadView = () => {
 
 const ForumView = () => {
   let ownId = '';
+  let threadSearch = '';
   return {
     oninit: (v) => {
       util.updatedisplayforums(v.attrs.id);
@@ -649,46 +650,108 @@ const ForumView = () => {
         fauthor = rs.userList.username(forumDetails.author);
       }
 
+      const toggleSubscription = async () => {
+        const res = await rs.rsJsonApiRequest('/rsgxsforums/subscribeToForum', {
+          forumId: v.attrs.id,
+          subscribe: !fsubscribed,
+        });
+        if (res.body.retval) {
+          util.Data.DisplayForums[v.attrs.id].isSubscribed = !fsubscribed;
+          if (v.attrs.onSubscriptionChange) await v.attrs.onSubscriptionChange();
+          m.redraw();
+        }
+      };
+
+      const query = threadSearch.trim().toLowerCase();
+      const filteredPosts = query
+        ? allPosts.filter((thread) => (thread.mMsgName || '').toLowerCase().includes(query))
+        : allPosts;
+
       return [
-        m(
-          'a[title=Back]',
-          {
-            onclick: () =>
-              m.route.set('/forums/:tab', {
-                tab: m.route.param().tab,
-              }),
-          },
-          m('i.fas.fa-arrow-left')
-        ),
+        m('.forum-detail-navigation', [
+          m(
+            'a.forum-back[title=Back][aria-label=Back]',
+            {
+              onclick: () =>
+                m.route.set('/forums/:tab', {
+                  tab: m.route.param().tab || 'Subscribed',
+                }),
+            },
+            m('i.fas.fa-arrow-left')
+          ),
+          m('.forum-mobile-search', [
+            m('input[type=search][placeholder=Search threads...]', {
+              value: threadSearch,
+              oninput: (e) => {
+                threadSearch = e.target.value;
+              },
+            }),
+          ]),
+          m('details.forum-mobile-actions', {
+            onkeydown: (event) => {
+              if (event.key === 'Escape') {
+                event.currentTarget.open = false;
+                event.currentTarget.querySelector('summary').focus();
+              }
+            },
+            onfocusout: (event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) event.currentTarget.open = false;
+            },
+          }, [
+            m('summary[aria-label=Forum actions][title=Forum actions]', m('i.fas.fa-ellipsis-v')),
+            m('.forum-mobile-actions__items', m('button[type=button]', {
+              onclick: (event) => {
+                const menu = event.currentTarget.closest('details');
+                menu.open = false;
+                menu.querySelector('summary').focus();
+                return toggleSubscription();
+              },
+            }, fsubscribed ? 'Unsubscribe' : 'Subscribe')),
+          ]),
+        ]),
 
         m('.widget__heading.forum-detail-heading', [
           m('h3', fname),
-          m(
-            'button',
+          fsubscribed && m(
+            'button.forum-mobile-create[type=button][title=New Thread][aria-label=New Thread]',
             {
-              onclick: async () => {
-                const res = await rs.rsJsonApiRequest('/rsgxsforums/subscribeToForum', {
-                  forumId: v.attrs.id,
-                  subscribe: !fsubscribed,
-                });
-                if (res.body.retval) {
-                  util.Data.DisplayForums[v.attrs.id].isSubscribed = !fsubscribed;
-                }
+              onclick: () => {
+                util.popupmessage(
+                  m(AddThread, {
+                    parent_thread: '',
+                    forumId: v.attrs.id,
+                    authorId: ownId,
+                    parentId: '',
+                  }),
+                  'create-forum-thread-modal'
+                );
               },
+            },
+            m('i.fas.fa-pencil-alt')
+          ),
+          m(
+            'button.forum-subscription-button',
+            {
+              class: fsubscribed ? 'forum-subscription--subscribed' : '',
+              onclick: toggleSubscription,
             },
             fsubscribed ? 'Subscribed' : 'Subscribe'
           ),
         ]),
-        m('.forum-detail-card', [
-          m('.forum-detail-card__icon[role=img][aria-label=Forum]',
-            m('i.fas.fa-bullhorn')
-          ),
-          m('.forum-detail-card__details', [
-            m('div', [m('b', 'Date created: '), m('span', formatTimestamp(createDate))]),
-            m('div', [m('b', 'Admin: '), m('span', fauthor)]),
-            m('div', [m('b', 'Last activity: '), m('span', formatTimestamp(lastActivity))]),
+        m('.media-item', [
+          m('.media-item__details', [
+            m(
+              '.forum-detail-default-thumbnail[role=img][aria-label=Default forum thumbnail]',
+              m('i.fas.fa-bullhorn')
+            ),
+            m('.media-item__details-info', [
+              m('div', [m('b', 'Threads: '), m('span', allPosts.length)]),
+              m('div', [m('b', 'Date created: '), m('span', formatTimestamp(createDate))]),
+              m('div', [m('b', 'Admin: '), m('span', fauthor)]),
+              m('div', [m('b', 'Last activity: '), m('span', formatTimestamp(lastActivity))]),
+            ]),
           ]),
-          m('.forum-detail-card__description', [
+          m('.media-item__desc', [
             m('b', 'Description: '),
             m('span', forumDetails.description || 'No Description'),
           ]),
@@ -722,21 +785,18 @@ const ForumView = () => {
             util.ThreadsTable,
             m(
               'tbody',
-              allPosts
-                .sort((a, b) => getTimestampValue(b.mPublishTs) - getTimestampValue(a.mPublishTs))
-                .map((thread) =>
-                  m(
-                    'tr',
-                    {
-                      style:
-                        thread.mMsgStatus === util.THREAD_UNREAD ? { fontWeight: 'bold' } : '',
-                    },
-                    m('td', { style: { padding: '10px 0' } }, [
-                      m('div.date', { style: { fontSize: '0.8em', color: '#888' } },
-                        formatTimestamp(thread.mPublishTs)
-                      ),
-                      m('div.title', {
-                        style: { fontWeight: 'bold', fontSize: '1.2em', cursor: 'pointer', margin: '5px 0' },
+              filteredPosts.length === 0
+                ? m('tr', m('td.forum-threads__empty', {
+                  style: { textAlign: 'center', padding: '1.25rem', color: '#64748b', fontSize: '.9rem' },
+                }, query ? 'No threads matching search.' : 'No threads in this forum yet.'))
+                : filteredPosts
+                  .sort((a, b) => getTimestampValue(b.mPublishTs) - getTimestampValue(a.mPublishTs))
+                  .map((thread) =>
+                    m(
+                      'tr.forum-thread-row',
+                      {
+                        class:
+                          thread.mMsgStatus === util.THREAD_UNREAD ? 'forum-thread-row--unread' : '',
                         onclick: () => {
                           m.route.set('/forums/:tab/:mGroupId/:mMsgId', {
                             tab: m.route.param().tab,
@@ -744,11 +804,17 @@ const ForumView = () => {
                             mMsgId: thread.mOrigMsgId,
                           });
                         },
-                      }, thread.mMsgName),
-                      m('div.author', { style: { fontSize: '0.9em', fontStyle: 'italic' } }, rs.userList.username(thread.mAuthorId)),
-                    ])
+                      },
+                      m('td.forum-thread-row__cell', [
+                        m('.forum-thread-row__title', thread.mMsgName),
+                        m('.forum-thread-row__meta', [
+                          m('span.forum-thread-row__author', rs.userList.username(thread.mAuthorId)),
+                          m('span.forum-thread-row__bullet', '•'),
+                          m('span.forum-thread-row__date', formatTimestamp(thread.mPublishTs)),
+                        ]),
+                      ])
+                    )
                   )
-                )
             )
           )
         ),

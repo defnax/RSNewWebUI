@@ -38,6 +38,15 @@ const sections = {
 
 const Layout = () => {
   let ownId;
+  const createForum = () =>
+    ownId &&
+    util.popupmessage(
+      m(viewUtil.createforum, {
+        authorId: ownId,
+        onCreated: getForums.load,
+      }),
+      'create-forum-modal'
+    );
 
   return {
     oninit: () => {
@@ -57,22 +66,18 @@ const Layout = () => {
         ownId.unshift(0);
       });
     },
-    view: (vnode) =>
-      m('.widget', [
+    view: (vnode) => {
+      const isForumDetail = vnode.attrs.pathInfo.mGroupId && !vnode.attrs.pathInfo.mMsgId;
+      const isThreadDetail = vnode.attrs.pathInfo.mGroupId && vnode.attrs.pathInfo.mMsgId;
+      return m('.widget', {
+        class: isForumDetail ? 'forums-detail-widget' : isThreadDetail ? 'forums-thread-widget' : '',
+      }, [
         m('.top-heading', [
           vnode.attrs.pathInfo.tab === 'MyForums' &&
           m(
-            'button',
+            'button.forums-create-button',
             {
-              onclick: () =>
-                ownId &&
-                util.popupmessage(
-                  m(viewUtil.createforum, {
-                    authorId: ownId,
-                    onCreated: getForums.load,
-                  }),
-                  'create-forum-modal'
-                ),
+              onclick: createForum,
             },
             'Create Forum'
           ),
@@ -88,11 +93,14 @@ const Layout = () => {
           : Object.prototype.hasOwnProperty.call(vnode.attrs.pathInfo, 'mGroupId') // Forum's view
             ? m(viewUtil.ForumView, {
               id: vnode.attrs.pathInfo.mGroupId,
+              onSubscriptionChange: getForums.load,
             })
             : m(sections[vnode.attrs.pathInfo.tab], {
               list: getForums[vnode.attrs.pathInfo.tab],
+              onCreateForum: createForum,
             }),
-      ]),
+      ]);
+    },
   };
 };
 
