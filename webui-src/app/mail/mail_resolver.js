@@ -175,10 +175,30 @@ const tagFilterOptions = [
 const MailComponent = () => {
   let showCompose = false;
   let mobileNavOpen = false;
+  //  Which message the auto-mark-read already ran for. Running it on EVERY
+  //  redraw re-cleared the local unread bits the instant "Mark as unread"
+  //  set them, and the change notification scheduled a summaries reload
+  //  whose redraw re-triggered it: a full getMessageSummaries fetch every
+  //  ~250 ms for as long as the message stayed open.
+  let lastAutoReadMsgId = null;
+  const autoMarkRead = (msgId) => {
+    if (!msgId) {
+      lastAutoReadMsgId = null;
+      return;
+    }
+    if (msgId === lastAutoReadMsgId) return;
+    lastAutoReadMsgId = msgId;
+    Messages.markReadLocally(msgId);
+  };
   let searchQuery = '';
   let filterUnreadOnly = false;
   let selectedTagFilter = '';
   let viewMode = localStorage.getItem('rs_mail_view_mode') || 'cards';
+  //  Cards fetch a body each (for the snippet): unpaginated, a large folder
+  //  fired one getMessage per mail in one burst. Same page size as the table.
+  const CARD_PAGE_SIZE = 50;
+  let cardPage = 0;
+  let cardPageTab = null;
 
   function setShowCompose(bool) {
     showCompose = bool;
@@ -187,14 +207,10 @@ const MailComponent = () => {
   return {
     oninit: (vnode) => {
       Messages.load();
-      if (vnode.attrs.msgId) {
-        Messages.markReadLocally(vnode.attrs.msgId);
-      }
+      autoMarkRead(vnode.attrs.msgId);
     },
     onupdate: (vnode) => {
-      if (vnode.attrs.msgId) {
-        Messages.markReadLocally(vnode.attrs.msgId);
-      }
+      autoMarkRead(vnode.attrs.msgId);
     },
     view: (vnode) => {
       const activeTab = vnode.attrs.tab || 'inbox';
@@ -239,7 +255,9 @@ const MailComponent = () => {
 
       function selectMessage(id) {
         Messages.markReadLocally(id);
-        util.markMessageRead(id);
+        //  No markMessageRead here: MessageView.loadMail() sends it when the
+        //  message opens -- both did, two server calls and two summaries
+        //  reloads per click.
         m.route.set('/mail/:tab/:msgId', { tab: activeTab, msgId: id });
       }
 
@@ -462,18 +480,41 @@ const MailComponent = () => {
                     m('p', searchQuery || filterUnreadOnly || selectedTagFilter ? 'No emails match your filter criteria.' : 'This folder is currently empty.'),
                   ])
                 : viewMode === 'cards'
-                ? m(
-                    '.mail-cards-container',
-                    sortedList.map((msg) =>
-                      m(util.MessageCard, {
-                        key: msg.msgId,
-                        msg,
-                        isSelected: msg.msgId === activeMsgId,
-                        category: activeTab,
-                        onSelect: (id) => selectMessage(id),
-                      })
-                    )
-                  )
+                ? (() => {
+                    if (cardPageTab !== activeTab) {
+                      cardPageTab = activeTab;
+                      cardPage = 0;
+                    }
+                    const totalCardPages = Math.ceil(sortedList.length / CARD_PAGE_SIZE) || 1;
+                    if (cardPage >= totalCardPages) cardPage = totalCardPages - 1;
+                    const pageStart = cardPage * CARD_PAGE_SIZE;
+                    const pagedCards = sortedList.slice(pageStart, pageStart + CARD_PAGE_SIZE);
+                    return [
+                      m(
+                        '.mail-cards-container',
+                        pagedCards.map((msg) =>
+                          m(util.MessageCard, {
+                            key: msg.msgId,
+                            msg,
+                            isSelected: msg.msgId === activeMsgId,
+                            category: activeTab,
+                            onSelect: (id) => selectMessage(id),
+                          })
+                        )
+                      ),
+                      sortedList.length > CARD_PAGE_SIZE && m('.mail-cards-pagination', [
+                        m('button[type=button]', {
+                          disabled: cardPage === 0,
+                          onclick: () => { cardPage -= 1; },
+                        }, m('i.fas.fa-chevron-left')),
+                        m('span', `${cardPage + 1} / ${totalCardPages}`),
+                        m('button[type=button]', {
+                          disabled: cardPage >= totalCardPages - 1,
+                          onclick: () => { cardPage += 1; },
+                        }, m('i.fas.fa-chevron-right')),
+                      ]),
+                    ];
+                  })()
                 : m(
                     util.Table,
                     m(
