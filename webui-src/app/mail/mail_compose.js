@@ -689,46 +689,34 @@ const Layout = () => {
             }),
 
             // Modern Mail Composer Bottom Toolbar
-            m('.mail-compose-toolbar', {
-              style: 'display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0.75rem; background: #ffffff; border: 1px solid #cbd5e1; border-top: 1px solid #e2e8f0; border-radius: 0 0 0.375rem 0.375rem; position: relative;'
-            }, [
-              m('.toolbar-left', { style: 'display: flex; align-items: center; gap: 0.5rem;' }, [
-                m('button.mail-compose-send-btn', {
-                  style: 'display: flex; align-items: center; gap: 0.5rem; padding: 0.45rem 1.25rem; background: #019DFF; color: #ffffff; border: none; border-radius: 1.5rem; font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: background 0.15s ease; box-shadow: 0 2px 4px rgba(1,157,255,0.25);',
+            m('.mail-compose-toolbar', [
+              m('.toolbar-left', [
+                m('button.mail-compose-send-btn[type=button]', {
                   onclick: sendMail,
                 }, [
                   m('span', 'Send'),
-                  m('i.fas.fa-paper-plane', { style: 'font-size: 0.85rem;' }),
+                  m('i.fas.fa-paper-plane'),
                 ]),
-                m('.toolbar-divider', { style: 'width: 1px; height: 22px; background: #cbd5e1; margin: 0 0.25rem;' }),
-                m('button.mail-tool-btn', {
-                  type: 'button',
+                m('.toolbar-divider'),
+                m('button.mail-tool-btn[type=button]', {
                   title: 'Attach files',
-                  style: 'width: 34px; height: 34px; border-radius: 50%; border: none; background: transparent; color: #475569; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.15s ease;',
-                  onmouseenter: (e) => (e.currentTarget.style.background = '#f1f5f9'),
-                  onmouseleave: (e) => (e.currentTarget.style.background = 'transparent'),
                   onclick: () => {
                     const input = document.getElementById('mail-file-attach');
                     if (input) input.click();
                   },
-                }, m('i.fas.fa-paperclip', { style: 'font-size: 1.05rem;' })),
-                m('button.mail-tool-btn', {
-                  type: 'button',
+                }, m('i.fas.fa-paperclip')),
+                m('button.mail-tool-btn[type=button]', {
                   title: 'Insert image',
-                  style: 'width: 34px; height: 34px; border-radius: 50%; border: none; background: transparent; color: #475569; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.15s ease;',
-                  onmouseenter: (e) => (e.currentTarget.style.background = '#f1f5f9'),
-                  onmouseleave: (e) => (e.currentTarget.style.background = 'transparent'),
                   onclick: () => {
                     const input = document.getElementById('mail-image-attach');
                     if (input) input.click();
                   },
-                }, m('i.fas.fa-image', { style: 'font-size: 1.05rem;' })),
-                m('button.mail-tool-btn', {
-                  type: 'button',
+                }, m('i.fas.fa-image')),
+                m('button.mail-tool-btn[type=button]', {
                   title: 'Insert emoji',
-                  style: `width: 34px; height: 34px; border-radius: 50%; border: none; background: ${showEmojiPicker ? '#e0f2fe' : 'transparent'}; color: ${showEmojiPicker ? '#0284c7' : '#475569'}; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.15s ease;`,
+                  class: showEmojiPicker ? 'active' : '',
                   onclick: () => (showEmojiPicker = !showEmojiPicker),
-                }, m('i.fas.fa-smile', { style: 'font-size: 1.05rem;' })),
+                }, m('i.fas.fa-smile')),
               ]),
 
               // Floating Emoji Picker Popover

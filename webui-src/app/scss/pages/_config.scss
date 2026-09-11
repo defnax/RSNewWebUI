@@ -21,9 +21,10 @@
           border: none;
         }
         &__color {
-          width: 1.25rem;
-          height: 1.25rem;
+          width: 18px;
+          height: 18px;
           aspect-ratio: 1;
+          border-radius: 50%;
         }
         &__name {
           font-size: 1.125rem;
