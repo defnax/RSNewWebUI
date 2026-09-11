@@ -23,6 +23,12 @@ const Debug = () => {
     });
   };
 
+  const latencyClass = (ms) => {
+    if (ms < 50) return 'debug-latency--fast';
+    if (ms < 200) return 'debug-latency--moderate';
+    return 'debug-latency--slow';
+  };
+
   return {
     oninit: () => {
       loadCoreVersion();
@@ -35,72 +41,208 @@ const Debug = () => {
     view: (vnode) => {
       const s = rs.apiStats;
       const version = vnode.attrs.version || '';
+      const isConnected = rs.connectionState.status;
       const core = coreVersion
-        ? `${coreVersion.major}.${coreVersion.minor}.${coreVersion.mini}${coreVersion.extra || ''} (${coreVersion.human || ''})`
-        : 'unknown';
+        ? `${coreVersion.major}.${coreVersion.minor}.${coreVersion.mini}${coreVersion.extra || ''}`
+        : 'Unknown';
+      const coreHuman = coreVersion && coreVersion.human ? coreVersion.human : '';
 
       return m('.debug-page', [
-        m('h2', 'Debug'),
-
-        m('.debug-section', [
-          m('h3', 'Build'),
-          m('.debug-grid', [
-            m('span', 'Web UI'), m('strong', version),
-            m('span', 'Core'), m('strong', core),
-            m('span', 'Core round trip'), m('strong', coreVersion ? coreVersionAt + ' ms' : '-'),
-            m('span', 'Page loaded'), m('strong', ago(s.startedAt)),
-            m('span', 'Viewport'), m('strong', `${window.innerWidth} x ${window.innerHeight} px`),
+        // Page Header
+        m('.debug-header', [
+          m('.debug-header__title', [
+            m('.debug-header__icon', m('i.fas.fa-bug')),
+            m('.debug-header__text', [
+              m('h1', 'Debug & Diagnostics'),
+              m('p', 'Real-time build information, API performance metrics, and connection health.'),
+            ]),
           ]),
-          m('.debug-actions', [
-            //  The page keeps the code it loaded until reloaded, and a phone
-            //  browser hides that action away: a new build shows only after this.
-            m('button', { onclick: () => window.location.reload(true) }, [m('i.fas.fa-sync-alt'), ' Reload the web UI']),
-            m('button', { onclick: loadCoreVersion }, [m('i.fas.fa-stopwatch'), ' Ping the core']),
-          ]),
-        ]),
-
-        m('.debug-section', [
-          m('h3', 'API from this browser'),
-          m('.debug-grid', [
-            m('span', 'Requests in flight'), m('strong', s.pending),
-            m('span', 'Requests since load'), m('strong', s.total),
-            m('span', 'Last sendChat'), m('strong', s.lastSend ? `${s.lastSend.ms} ms, ${ago(s.lastSend.at)}` : 'none yet'),
-          ]),
-          m('h4', 'Slowest requests'),
-          s.slowest.length === 0
-            ? m('p.debug-empty', 'Nothing yet.')
-            : m('table.debug-table', [
-                m('thead', m('tr', [m('th', 'Request'), m('th', 'Time'), m('th', 'When')])),
-                m('tbody', s.slowest.map((e) => m('tr', [
-                  m('td', short(e.path)),
-                  m('td', e.ms + ' ms'),
-                  m('td', ago(e.at)),
-                ]))),
-              ]),
-          m('h4', 'Last requests'),
-          s.recent.length === 0
-            ? m('p.debug-empty', 'Nothing yet.')
-            : m('table.debug-table', [
-                m('thead', m('tr', [m('th', 'Request'), m('th', 'Time'), m('th', 'When')])),
-                m('tbody', s.recent.map((e) => m('tr', [
-                  m('td', short(e.path)),
-                  m('td', e.ms + ' ms'),
-                  m('td', ago(e.at)),
-                ]))),
-              ]),
-          m('.debug-actions', [
-            m('button', { onclick: () => rs.resetApiStats() }, [m('i.fas.fa-eraser'), ' Reset counters']),
+          m('.debug-header__actions', [
+            m('button.debug-btn[type=button]', {
+              onclick: () => window.location.reload(true),
+              title: 'Force reload the Web UI bundle',
+            }, [m('i.fas.fa-sync-alt'), m('span', 'Reload Web UI')]),
+            m('button.debug-btn[type=button]', {
+              onclick: loadCoreVersion,
+              title: 'Ping the RetroShare core for version & latency',
+            }, [m('i.fas.fa-stopwatch'), m('span', 'Ping Core')]),
+            m('button.debug-btn.debug-btn--danger[type=button]', {
+              onclick: () => rs.resetApiStats(),
+              title: 'Reset API counters and latency tracking',
+            }, [m('i.fas.fa-eraser'), m('span', 'Reset Stats')]),
           ]),
         ]),
 
-        m('.debug-section', [
-          m('h3', 'Event stream'),
-          m('.debug-grid', [
-            m('span', 'Received'), m('strong', rs.formatBytes(s.eventsBytes)),
-            m('span', 'Last event'), m('strong', ago(s.lastEventAt)),
-            m('span', 'Reconnections'), m('strong', s.eventsRestarts),
+        // KPI Summary Cards
+        m('.debug-kpi-grid', [
+          m('.debug-kpi-card', [
+            m('.debug-kpi-card__icon.debug-kpi-card__icon--blue', m('i.fas.fa-server')),
+            m('.debug-kpi-card__body', [
+              m('.debug-kpi-card__label', 'Core Latency'),
+              m('.debug-kpi-card__value', coreVersion ? `${coreVersionAt} ms` : '-'),
+              m('.debug-kpi-card__subtext', [
+                m(`span.debug-status-dot.${isConnected ? 'online' : 'offline'}`),
+                isConnected ? 'Connected' : 'Offline',
+              ]),
+            ]),
           ]),
-          m('p.debug-hint', 'The stream carries every event of the core over one long request; it holds one of the six connections a browser keeps to a host, the others queue the requests above.'),
+          m('.debug-kpi-card', [
+            m('.debug-kpi-card__icon.debug-kpi-card__icon--purple', m('i.fas.fa-network-wired')),
+            m('.debug-kpi-card__body', [
+              m('.debug-kpi-card__label', 'Active Requests'),
+              m('.debug-kpi-card__value', s.pending),
+              m('.debug-kpi-card__subtext', `${s.total.toLocaleString()} total calls`),
+            ]),
+          ]),
+          m('.debug-kpi-card', [
+            m('.debug-kpi-card__icon.debug-kpi-card__icon--green', m('i.fas.fa-comment-dots')),
+            m('.debug-kpi-card__body', [
+              m('.debug-kpi-card__label', 'Last sendChat'),
+              m('.debug-kpi-card__value', s.lastSend ? `${s.lastSend.ms} ms` : 'None yet'),
+              m('.debug-kpi-card__subtext', s.lastSend ? ago(s.lastSend.at) : 'No chat sent'),
+            ]),
+          ]),
+          m('.debug-kpi-card', [
+            m('.debug-kpi-card__icon.debug-kpi-card__icon--amber', m('i.fas.fa-satellite-dish')),
+            m('.debug-kpi-card__body', [
+              m('.debug-kpi-card__label', 'Event Stream'),
+              m('.debug-kpi-card__value', rs.formatBytes(s.eventsBytes)),
+              m('.debug-kpi-card__subtext', `${s.eventsRestarts} reconnects • ${ago(s.lastEventAt)}`),
+            ]),
+          ]),
+        ]),
+
+        // Detail Sections Grid (Build info + Event stream info)
+        m('.debug-grid-2col', [
+          m('.debug-section', [
+            m('.debug-section__header', [
+              m('i.fas.fa-cube'),
+              m('h3', 'Build & Environment'),
+            ]),
+            m('.debug-info-list', [
+              m('.debug-info-row', [
+                m('span.debug-info-label', 'Web UI Version'),
+                m('span.debug-info-value', m('span.debug-badge.debug-badge--blue', version || 'dev')),
+              ]),
+              m('.debug-info-row', [
+                m('span.debug-info-label', 'Core Version'),
+                m('span.debug-info-value', [
+                  m('span.debug-badge.debug-badge--slate', core),
+                  coreHuman && m('small.debug-sublabel', coreHuman),
+                ]),
+              ]),
+              m('.debug-info-row', [
+                m('span.debug-info-label', 'Core Round Trip'),
+                m('span.debug-info-value', coreVersion ? `${coreVersionAt} ms` : '-'),
+              ]),
+              m('.debug-info-row', [
+                m('span.debug-info-label', 'Page Loaded'),
+                m('span.debug-info-value', ago(s.startedAt)),
+              ]),
+              m('.debug-info-row', [
+                m('span.debug-info-label', 'Browser Viewport'),
+                m('span.debug-info-value', `${window.innerWidth} × ${window.innerHeight} px`),
+              ]),
+              m('.debug-info-row', [
+                m('span.debug-info-label', 'Core Connection'),
+                m('span.debug-info-value', [
+                  m(`span.debug-status-dot.${isConnected ? 'online' : 'offline'}`),
+                  isConnected ? 'Online' : 'Disconnected',
+                ]),
+              ]),
+            ]),
+          ]),
+
+          m('.debug-section', [
+            m('.debug-section__header', [
+              m('i.fas.fa-stream'),
+              m('h3', 'Event Stream & Connection'),
+            ]),
+            m('.debug-info-list', [
+              m('.debug-info-row', [
+                m('span.debug-info-label', 'Data Received'),
+                m('span.debug-info-value', rs.formatBytes(s.eventsBytes)),
+              ]),
+              m('.debug-info-row', [
+                m('span.debug-info-label', 'Last Event Time'),
+                m('span.debug-info-value', ago(s.lastEventAt)),
+              ]),
+              m('.debug-info-row', [
+                m('span.debug-info-label', 'Reconnections'),
+                m('span.debug-info-value', String(s.eventsRestarts)),
+              ]),
+              m('.debug-info-row', [
+                m('span.debug-info-label', 'Connection Mode'),
+                m('span.debug-info-value', m('span.debug-badge.debug-badge--green', 'Active Long-Poll / SSE')),
+              ]),
+            ]),
+            m('.debug-callout', [
+              m('i.fas.fa-info-circle'),
+              m('p', 'The event stream carries every real-time event from the core over a single persistent HTTP channel. Browsers typically keep up to 6 simultaneous connections per host, allowing the remaining 5 to handle concurrent API requests.'),
+            ]),
+          ]),
+        ]),
+
+        // API Performance Section
+        m('.debug-section', [
+          m('.debug-section__header', [
+            m('i.fas.fa-tachometer-alt'),
+            m('h3', 'API Performance & Request History'),
+          ]),
+
+          m('.debug-tables-grid', [
+            m('.debug-table-panel', [
+              m('.debug-table-panel__header', [
+                m('h4', 'Slowest Requests'),
+                m('span.debug-count-badge', `${s.slowest.length} recorded`),
+              ]),
+              s.slowest.length === 0
+                ? m('.debug-empty', [
+                    m('i.fas.fa-check-circle'),
+                    m('p', 'No slow requests recorded yet.'),
+                  ])
+                : m('.debug-table-wrap', [
+                    m('table.debug-table', [
+                      m('thead', m('tr', [
+                        m('th', 'Endpoint'),
+                        m('th', 'Latency'),
+                        m('th', 'When'),
+                      ])),
+                      m('tbody', s.slowest.map((e) => m('tr', [
+                        m('td.debug-table__endpoint', m('code', short(e.path))),
+                        m('td.debug-table__latency', m(`span.debug-latency-badge.${latencyClass(e.ms)}`, `${e.ms} ms`)),
+                        m('td.debug-table__when', ago(e.at)),
+                      ]))),
+                    ]),
+                  ]),
+            ]),
+
+            m('.debug-table-panel', [
+              m('.debug-table-panel__header', [
+                m('h4', 'Recent Requests'),
+                m('span.debug-count-badge', `${s.recent.length} recent`),
+              ]),
+              s.recent.length === 0
+                ? m('.debug-empty', [
+                    m('i.fas.fa-inbox'),
+                    m('p', 'No requests recorded yet.'),
+                  ])
+                : m('.debug-table-wrap', [
+                    m('table.debug-table', [
+                      m('thead', m('tr', [
+                        m('th', 'Endpoint'),
+                        m('th', 'Latency'),
+                        m('th', 'When'),
+                      ])),
+                      m('tbody', s.recent.map((e) => m('tr', [
+                        m('td.debug-table__endpoint', m('code', short(e.path))),
+                        m('td.debug-table__latency', m(`span.debug-latency-badge.${latencyClass(e.ms)}`, `${e.ms} ms`)),
+                        m('td.debug-table__when', ago(e.at)),
+                      ]))),
+                    ]),
+                  ]),
+            ]),
+          ]),
         ]),
       ]);
     },
