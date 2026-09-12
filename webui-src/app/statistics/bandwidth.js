@@ -110,7 +110,13 @@ function DrainBadge(drainSec) {
   return m('span', { class: badgeClass }, `${display} s`);
 }
 
-module.exports = {
+//  A named object, not an anonymous export: mithril mounts a POJO component
+//  as Object.create(component) and runs hooks with `this` = that instance, so
+//  state written through `this` shadowed the module object -- and the Stats
+//  page's Refresh button, calling load() on the MODULE, updated state the
+//  mounted instance never read. Every reference below goes through Bandwidth
+//  so the instance, the timer and external callers share one state.
+const Bandwidth = {
   totalRates: null,
   peerRates: [],
   loading: false,
@@ -118,8 +124,8 @@ module.exports = {
   timer: null,
 
   async load() {
-    if (this.loading) return;
-    this.loading = true;
+    if (Bandwidth.loading) return;
+    Bandwidth.loading = true;
     try {
       const [totalRes, allRes] = await Promise.all([
         rs.rsJsonApiRequest('/rsConfig/getTotalBandwidthRates'),
@@ -131,11 +137,11 @@ module.exports = {
 
       if (totalRes.status === 200 && totalBody.retval) {
         const rawTotals = totalBody.rates || {};
-        this.totalRates = parseRates(rawTotals);
-        this.totalRates.drain = computeDrain(this.totalRates.queueOutBytes, this.totalRates.rateOut);
-        this.error = '';
+        Bandwidth.totalRates = parseRates(rawTotals);
+        Bandwidth.totalRates.drain = computeDrain(Bandwidth.totalRates.queueOutBytes, Bandwidth.totalRates.rateOut);
+        Bandwidth.error = '';
       } else {
-        this.totalRates = null;
+        Bandwidth.totalRates = null;
       }
 
       if (allRes.status === 200 && allBody.retval) {
@@ -145,7 +151,7 @@ module.exports = {
           ? rawMap
           : Object.entries(rawMap).map(([key, value]) => ({ key, value }));
 
-        this.peerRates = entries.map((entry) => {
+        Bandwidth.peerRates = entries.map((entry) => {
           const id = idString(entry.key);
           const rates = parseRates(entry.value);
           const drain = computeDrain(rates.queueOutBytes, rates.rateOut);
@@ -158,37 +164,37 @@ module.exports = {
           };
         }).sort((a, b) => b.rateIn + b.rateOut - (a.rateIn + a.rateOut));
       } else {
-        this.peerRates = [];
+        Bandwidth.peerRates = [];
       }
     } catch (err) {
-      this.error = 'Failed to load bandwidth statistics from RetroShare Core.';
+      Bandwidth.error = 'Failed to load bandwidth statistics from RetroShare Core.';
     } finally {
-      this.loading = false;
+      Bandwidth.loading = false;
       m.redraw();
     }
   },
 
   oninit() {
-    this.totalRates = null;
-    this.peerRates = [];
-    this.error = '';
-    this.load();
-    this.timer = setInterval(() => this.load(), 5000);
+    Bandwidth.totalRates = null;
+    Bandwidth.peerRates = [];
+    Bandwidth.error = '';
+    Bandwidth.load();
+    Bandwidth.timer = setInterval(() => Bandwidth.load(), 5000);
   },
 
   onremove() {
-    if (this.timer) {
-      clearInterval(this.timer);
-      this.timer = null;
+    if (Bandwidth.timer) {
+      clearInterval(Bandwidth.timer);
+      Bandwidth.timer = null;
     }
   },
 
   view() {
-    const totals = this.totalRates;
-    const peers = this.peerRates;
+    const totals = Bandwidth.totalRates;
+    const peers = Bandwidth.peerRates;
 
     return m('.bandwidth-view', [
-      this.error && m('.statistics-error', [m('i.fas.fa-exclamation-triangle'), this.error]),
+      Bandwidth.error && m('.statistics-error', [m('i.fas.fa-exclamation-triangle'), Bandwidth.error]),
 
       // ── Top summary cards ──
       totals && m('.bandwidth-summary-grid', [
@@ -358,3 +364,5 @@ module.exports = {
     ]);
   },
 };
+
+module.exports = Bandwidth;

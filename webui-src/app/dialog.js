@@ -4,16 +4,43 @@ const m = require('mithril');
 // and provide dialog semantics; callers own the open state and sheet content.
 const Dialog = () => {
   let opener;
+  let onclose = () => { };
+  let desktopQuery;
+  let onLayoutChange;
   return {
     oncreate: ({ dom }) => {
       opener = document.activeElement;
       dom.showModal();
+      //  The sheets are phone chrome: above 700px their CSS hides the dialog,
+      //  but showModal() keeps the whole page inert regardless -- rotating to
+      //  landscape with a sheet open left the UI untappable with no visible
+      //  way out. Crossing into the desktop layout closes the sheet instead.
+      //  The SAME condition the stylesheet uses to show the sheet
+      //  (max-width: 700px), so JS and CSS agree at every width -- a
+      //  min-width: 701px mirror leaves a fractional crack (700 < w < 701,
+      //  common at desktop zoom levels) where the sheet is hidden but still
+      //  modal.
+      desktopQuery = window.matchMedia('(max-width: 700px)');
+      onLayoutChange = (event) => {
+        if (!event.matches) {
+          onclose();
+          m.redraw();
+        }
+      };
+      if (desktopQuery.addEventListener) desktopQuery.addEventListener('change', onLayoutChange);
+      else desktopQuery.addListener(onLayoutChange);
     },
     onremove: ({ dom }) => {
+      if (desktopQuery && onLayoutChange) {
+        if (desktopQuery.removeEventListener) desktopQuery.removeEventListener('change', onLayoutChange);
+        else desktopQuery.removeListener(onLayoutChange);
+      }
       dom.close();
       if (opener && opener.isConnected) opener.focus();
     },
-    view: ({ attrs, children }) => m('dialog.accessible-dialog', {
+    view: ({ attrs, children }) => {
+      onclose = attrs.onclose;
+      return m('dialog.accessible-dialog', {
       class: attrs.overlayClass,
       'aria-label': attrs.label,
       'aria-modal': 'true',
@@ -44,7 +71,8 @@ const Dialog = () => {
           first.focus();
         }
       },
-    }, m('div', { class: attrs.sheetClass }, children)),
+      }, m('div', { class: attrs.sheetClass }, children));
+    },
   };
 };
 

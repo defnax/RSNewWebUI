@@ -962,6 +962,12 @@ button.board-card__vote-btn,
   color: #ffffff;
 }
 
+// The global button:active (0,1,1) presses an inset shadow over this class
+// (0,1,0) while clicked; keep the button's own elevation instead.
+.photo-view-nav-btn:active {
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+}
+
 .photo-view-footer {
   display: flex;
   align-items: center;
