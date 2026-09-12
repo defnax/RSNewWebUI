@@ -190,6 +190,8 @@ const MessageSummary = () => {
             isSpam = Boolean(details.msgflags & RS_MSG_SPAM);
             if (v.attrs.details && v.attrs.details.msgflags !== undefined) {
               details.msgflags = v.attrs.details.msgflags;
+              isStarred = (details.msgflags & 0xf00) === RS_MSG_STAR;
+              isSpam = Boolean(details.msgflags & RS_MSG_SPAM);
             }
             MessageCache[v.attrs.details.msgId] = details;
           }
@@ -209,6 +211,15 @@ const MessageSummary = () => {
             );
           }
         });
+    },
+    //  The reading pane's star/spam toggles refresh the summaries; the row's
+    //  closure flags must follow the refreshed attrs or the icon stays stale
+    //  until a remount.
+    onupdate: (v) => {
+      if (v.attrs.details && v.attrs.details.msgflags !== undefined) {
+        isStarred = (v.attrs.details.msgflags & 0xf00) === RS_MSG_STAR;
+        isSpam = Boolean(v.attrs.details.msgflags & RS_MSG_SPAM);
+      }
     },
     view: (v) => {
       const spamActive = isSpam || Boolean((details.msgflags || v.attrs.details.msgflags) & RS_MSG_SPAM);
@@ -364,12 +375,18 @@ const MessageSummary = () => {
   };
 };
 
+//  Bodies already being fetched for a card: a remount during the round trip
+//  (filter toggle, page change) must not fire the same getMessage again.
+const CardFetchesInFlight = new Set();
+
 const MessageCard = () => {
   return {
     oninit: (v) => {
       const msgId = v.attrs.msg.msgId;
-      if (!MessageCache[msgId]) {
+      if (!MessageCache[msgId] && !CardFetchesInFlight.has(msgId)) {
+        CardFetchesInFlight.add(msgId);
         rs.rsJsonApiRequest('/rsMail/getMessage', { msgId }).then((res) => {
+          CardFetchesInFlight.delete(msgId);
           if (res && res.body && res.body.retval) {
             MessageCache[msgId] = res.body.msg;
             MessageCache[msgId].msgtags = v.attrs.msg.msgtags;
@@ -781,6 +798,7 @@ const MessageView = () => {
       const senderName = (senderAddr && UserNicknamesCache[senderAddr]) || (senderAddr && rs.userList.username(senderAddr)) || '[Unknown]';
       const toKeys = Object.keys(MailData.toList || {});
       const ccKeys = Object.keys(MailData.ccList || {});
+      const bccKeys = Object.keys(MailData.bccList || {});
 
       return m(
         '.msg-view.mail-reading-card',
@@ -888,6 +906,15 @@ const MessageView = () => {
                       return m('span.recipient-chip', { title: addr }, name);
                     }),
                   ]),
+                //  Own sent mail carries its Bcc list; the old view showed it.
+                bccKeys.length > 0 &&
+                  m('.msg-recipients-row', [
+                    m('span.recipient-label', 'Bcc:'),
+                    bccKeys.map((addr) => {
+                      const name = UserNicknamesCache[addr] || rs.userList.username(addr) || addr.slice(0, 8);
+                      return m('span.recipient-chip', { title: addr }, name);
+                    }),
+                  ]),
               ]),
             ]),
           ]),
@@ -913,7 +940,12 @@ const MessageView = () => {
                       senderId: senderAddr,
                       recipientList: MailData.toList,
                       ccList: MailData.ccList,
-                      subject: MailData.subject.startsWith('Re:') || MailData.subject.startsWith('Fwd:') ? MailData.subject : `${composeType === 'forward' ? 'Fwd' : 'Re'}: ${MailData.subject}`,
+                      //  The prefix depends on the ACTION, not on whatever
+                      //  prefix the subject already has: forwarding "Re: X"
+                      //  must send "Fwd: Re: X", not "Re: X".
+                      subject: composeType === 'forward'
+                        ? (MailData.subject.startsWith('Fwd:') ? MailData.subject : `Fwd: ${MailData.subject}`)
+                        : (MailData.subject.startsWith('Re:') ? MailData.subject : `Re: ${MailData.subject}`),
                       replyMessage: MailData.message,
                       timeStamp: new Date(MailData.timeStamp * 1000),
                       setShowCompose,
