@@ -559,6 +559,516 @@
   }
 }
 
+// ── Turtle Router section ──
+.turtle-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.turtle-panel {
+  width: 100%;
+  padding: 1.25rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  overflow: hidden;
+}
+
+.turtle-panel__heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #f1f5f9;
+
+  > i {
+    color: #0788cb;
+    font-size: 1.05rem;
+    margin-top: 0.15rem;
+    flex-shrink: 0;
+  }
+
+  h3 {
+    margin: 0 0 0.2rem;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #334155;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.82rem;
+    color: #64748b;
+  }
+}
+
+.turtle-prob-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.turtle-prob-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.75rem 0.5rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+
+  &__label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+    margin-bottom: 0.5rem;
+    white-space: nowrap;
+  }
+
+  &__value {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-top: 0.5rem;
+    white-space: nowrap;
+  }
+}
+
+.turtle-prob-bar-track {
+  width: 100%;
+  max-width: 48px;
+  height: 80px;
+  background: #e2e8f0;
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+}
+
+.turtle-prob-bar-fill {
+  width: 100%;
+  background: linear-gradient(180deg, #0284c7 0%, #0788cb 100%);
+  border-radius: 0 0 4px 4px;
+  transition: height 0.35s ease;
+}
+
+.turtle-controls-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.turtle-subtabs {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.turtle-subtab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #64748b;
+  background: none;
+  border: 1px solid transparent;
+  box-shadow: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &:active {
+    box-shadow: none;
+  }
+
+  i {
+    font-size: 0.8rem;
+  }
+
+  &:hover:not(.active) {
+    background: #f1f5f9;
+    color: #334155;
+  }
+
+  &.active {
+    background: #e0f2fe;
+    color: #0369a1;
+    font-weight: 600;
+    border-color: #bae6fd;
+
+    .turtle-badge {
+      background: #0284c7;
+      color: #ffffff;
+    }
+  }
+}
+
+.turtle-badge {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: #e2e8f0;
+  color: #475569;
+
+  &--hit {
+    background: #dcfce7;
+    color: #16a34a;
+  }
+}
+
+.turtle-depth-badge {
+  display: inline-block;
+  padding: 0.1rem 0.45rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-family: monospace;
+  font-weight: 600;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.turtle-filter-wrap {
+  position: relative;
+  width: 260px;
+  max-width: 100%;
+}
+
+.turtle-filter-icon {
+  position: absolute;
+  left: 0.65rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.8rem;
+  color: #94a3b8;
+  pointer-events: none;
+  z-index: 1;
+}
+
+input.turtle-filter-input[type='text'],
+input.turtle-filter-input {
+  width: 100%;
+  padding-left: 2.1rem !important;
+  padding-right: 2rem !important;
+  padding-top: 0.4rem;
+  padding-bottom: 0.4rem;
+  font-size: 0.8rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #1e293b;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  &:focus {
+    border-color: #0284c7;
+    box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.15);
+  }
+}
+
+.turtle-filter-clear {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  padding: 0.2rem;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 0.75rem;
+  box-shadow: none;
+
+  &:hover {
+    color: #475569;
+  }
+}
+
+.turtle-hash-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+  padding: 0.4rem 0.6rem;
+  background: #f8fafc;
+  border-radius: 6px;
+  font-size: 0.8rem;
+
+  &__label {
+    font-weight: 600;
+    color: #64748b;
+    white-space: nowrap;
+    font-size: 0.75rem;
+  }
+}
+
+.turtle-hash-chips {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  overflow-x: auto;
+  flex: 1;
+}
+
+.turtle-chip {
+  padding: 0.2rem 0.55rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-family: monospace;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: none;
+
+  &:active {
+    box-shadow: none;
+  }
+
+  &:hover:not(.active) {
+    background: #f1f5f9;
+  }
+
+  &.active {
+    background: #0284c7;
+    border-color: #0284c7;
+    color: #ffffff;
+    font-weight: 600;
+  }
+}
+
+.turtle-table {
+  min-width: 750px;
+
+  .turtle-cell--mono {
+    font-family: monospace;
+    font-size: 0.78rem;
+    color: #0369a1;
+  }
+
+  .turtle-cell--keywords {
+    max-width: 250px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-style: italic;
+    color: #334155;
+  }
+
+  .turtle-speed--active {
+    color: #16a34a;
+    font-weight: 700;
+  }
+
+  .turtle-speed--idle {
+    color: #94a3b8;
+    font-style: italic;
+  }
+}
+
+.turtle-vol-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #0284c7;
+  margin-top: 0.25rem;
+  white-space: nowrap;
+}
+
+.turtle-core-summary {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  padding: 0.65rem 1rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  font-size: 0.8rem;
+  color: #475569;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+
+  &__item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+
+    > i {
+      color: #0788cb;
+      font-size: 0.85rem;
+    }
+  }
+
+  &__title {
+    font-weight: 700;
+    color: #1e293b;
+  }
+}
+
+// ── Tunnel Requests Repartition (Matches Qt GUI TRHistogram) ──
+.turtle-repartition-view {
+  width: 100%;
+}
+
+.turtle-repartition-grid {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.turtle-repartition-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.turtle-repartition-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #334155;
+  margin: 0 0 0.85rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+
+  > i {
+    color: #0788cb;
+    font-size: 0.9rem;
+  }
+}
+
+.turtle-repartition-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  max-height: 280px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.turtle-repartition-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+
+  &__info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.78rem;
+  }
+
+  &__name {
+    font-weight: 600;
+    color: #1e293b;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 180px;
+  }
+
+  &__count {
+    color: #64748b;
+  }
+}
+
+.turtle-repartition-bar-track {
+  width: 100%;
+  height: 6px;
+  background: #e2e8f0;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.turtle-repartition-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #0284c7 0%, #38bdf8 100%);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.turtle-repartition-total {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.85rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #e2e8f0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.turtle-depth-grid {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.turtle-depth-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 0.5rem 0.25rem;
+
+  &__label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #64748b;
+    margin-bottom: 0.35rem;
+    white-space: nowrap;
+  }
+
+  &__count {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-top: 0.35rem;
+  }
+
+  &__pct {
+    font-size: 0.65rem;
+    color: #64748b;
+  }
+}
+
+.turtle-depth-bar-track {
+  width: 100%;
+  max-width: 24px;
+  height: 70px;
+  background: #e2e8f0;
+  border-radius: 3px;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+}
+
+.turtle-depth-bar-fill {
+  width: 100%;
+  background: linear-gradient(180deg, #0284c7 0%, #10b981 100%);
+  border-radius: 0 0 3px 3px;
+  transition: height 0.3s ease;
+}
+
 // ── Responsive: medium screens (stack traffic cards & 2-column stats) ──
 @media (max-width: 1200px) {
   .bandwidth-summary-grid {
@@ -704,5 +1214,28 @@
 
   .bandwidth-panel {
     padding: 0.8rem 0.5rem;
+  }
+
+  // Turtle mobile
+  .turtle-panel {
+    padding: 0.8rem 0.6rem;
+  }
+
+  .turtle-prob-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .turtle-prob-bar-track {
+    height: 60px;
+  }
+
+  .turtle-controls-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .turtle-filter-wrap {
+    width: 100%;
   }
 }
